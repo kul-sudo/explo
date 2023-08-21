@@ -1,25 +1,30 @@
 import type { FC } from 'react'
 import type { FileEntry } from '@tauri-apps/api/fs'
-import { useState, useEffect } from 'react'
-import { Box, Button, HStack, Input, Text, VStack } from '@chakra-ui/react'
+import { useState, useEffect, useRef } from 'react'
+import { Alert, AlertDescription, AlertIcon, Box, Button, HStack, Input, Text, Tooltip, VStack } from '@chakra-ui/react'
 import { path } from '@tauri-apps/api'
 import { readDir } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
-import useUndoRedo from '@/lib/useUndoRedo'
 import { ArrowLeft, ArrowRight, File, Folder } from '../node_modules/lucide-react'
+import { useDebouncedState } from '@mantine/hooks'
+import useUndoRedo from '@/lib/useUndoRedo'
+import { join } from 'path'
 
-const MAX_FILE_NAME_LENGTH = 20
+const MAX_FILE_NAME_LENGTH = 18
 
 type folderReferencesProps = {
   name: 'Desktop' | 'Home' | 'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
   directory: () => Promise<string>
 }
+const foundDirs: FileEntry[] = []
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
-  const [readDirArray, setReadDirArray] = useState<FileEntry[]>([])
+  const [readDirArray, setReadDirArray] = useState<FileEntry[]>(foundDirs)
 
-  const [searchText, setSearchText] = useState<string>('')
+  const [searchText, setSearchText] = useDebouncedState<string>('', 500)
+
+  const [directoryIssue, setDirectoryIssue] = useState<boolean>(false)
 
   const setupAppWindow = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
@@ -40,23 +45,40 @@ const Home: FC = () => {
 
   useEffect(() => {
     const toDo = async () => {
-      setReadDirArray(await readDir(currentDirectory))
+      try {
+        await readDir(currentDirectory).then(value => {
+          setDirectoryIssue(false)
+          setReadDirArray(value)
+        })
+      } catch {
+        setDirectoryIssue(true)
+      }
     }
 
     toDo()
   }, [currentDirectory])
 
+  const directoryRef = useRef<HTMLInputElement>(null)
+
+
   return (
     <>
       <VStack position="fixed" top="2" right="2">
-        <Input placeholder="Directory" width="10rem" variant="filled" />
-        <Input placeholder="Search" width="10rem" variant="filled" onChange={event => {
-          setSearchText(event.target.value)
+        <Input placeholder="Directory" width="10rem" variant="filled" ref={directoryRef} onKeyDown={event => {
+          if (event.key === 'Enter') {
+            if (directoryRef.current) {
+              if (directoryRef.current.value !== currentDirectory) {
+                setCurrentDirectory(directoryRef.current.value)
+              }
+            }
+          }
         }} />
-        <HStack>
-          <Button rounded="full" variant="outline" onClick={undoCurrentDirectory}><ArrowLeft /></Button>
-          <Button rounded="full" variant="outline" onClick={redoCurrentDirectory}><ArrowRight /></Button>
-        </HStack>
+
+        <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={async event => {
+          setSearchText(event.target.value)
+
+          await invoke('find_file', { command: `${currentDirectory},${event.target.value}` })
+        }} />
       </VStack>
 
       <HStack>
@@ -85,7 +107,48 @@ const Home: FC = () => {
           </VStack>
         </Box>
 
-        <VStack alignItems="left">
+        <VStack alignItems="start" position="relative" left="9rem">
+          <HStack mt={((currentDirectory === '') && !directoryIssue && readDir.length !== 0) ? '0rem' : '1rem'}>
+            <Button isDisabled={!isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
+              if (isCurrentDirectoryUndoPossible) {
+                undoCurrentDirectory()
+                setReadDirArray(foundDirs)
+                console.log(foundDirs)
+              }
+
+            }}><ArrowLeft /></Button>
+            <Button isDisabled={!isCurrentDirectoryRedoPossible} rounded="full" onClick={() => {
+              if (isCurrentDirectoryRedoPossible) {
+                redoCurrentDirectory()
+                setReadDirArray(foundDirs)
+                console.log(foundDirs)
+              }
+            }}><ArrowRight /></Button>
+          </HStack>
+
+          {readDirArray.length !== 0 && (
+            <Box>
+              {directoryIssue ? (
+                <Alert status="error" rounded="xl">
+                  <AlertIcon />
+                  <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
+                </Alert>
+              ): (
+                  <Alert status="success" rounded="xl">
+                    <AlertIcon />
+                    <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
+                  </Alert>
+                )}
+            </Box>
+          )}
+
+          {readDirArray.length === 0 && (
+            <Alert status="warning" rounded="xl">
+              <AlertIcon />
+              <AlertDescription fontWeight="medium">No files found 🤔</AlertDescription>
+            </Alert>
+          )}
+
           {Array.from(readDirArray.sort((a, b) => {
             if (Object.keys(a).length > Object.keys(b).length) {
               return -1
@@ -95,33 +158,30 @@ const Home: FC = () => {
           }).map((fileOrFolder, index) => {
               if (fileOrFolder.name!.includes(searchText)) {
                 const isFolder = Object.keys(fileOrFolder).length === 3
+
                 return (
-                  <Button position="relative" left="9rem" width="15rem" variant="outline" key={index} onDoubleClick={async () => {
-                    if (isFolder) {
-                      setCurrentDirectory(fileOrFolder.path)
-                    } else {
-                      await invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
-                    }
-                  }}>
-                    <Box position="absolute" left="0.5rem">
-                      {isFolder ? (
-                        <Folder />
-                      ): (
-                          <File />
-                        )}
-                    </Box>
-                    <Text position="absolute" right="0.5rem">
-                      {fileOrFolder.name!.length > MAX_FILE_NAME_LENGTH ? (
+                  <Tooltip key={index} label={fileOrFolder.path} placement="top">
+                    <Button width="15rem" variant="outline" onDoubleClick={async () => {
+                      if (isFolder) {
+                        setCurrentDirectory(fileOrFolder.path)
+                      } else {
+                        await invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
+                      }
+                    }}>
+                      <Box position="absolute" left="0.5rem">
+                        {isFolder ? (
+                          <Folder />
+                        ): (
+                            <File />
+                          )}
+                      </Box>
+                      <Box position="absolute" right="0.5rem">
                         <Text>
                           {fileOrFolder.name!.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
                         </Text>
-                      ) : (
-                          <Text>
-                            {fileOrFolder.name}
-                          </Text>
-                        )}
-                    </Text>
-                  </Button>
+                      </Box>
+                    </Button>
+                  </Tooltip>
                 )
               }
             }))}
