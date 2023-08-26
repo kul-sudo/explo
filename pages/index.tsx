@@ -5,9 +5,8 @@ import { Alert, AlertDescription, AlertIcon, Box, Button, HStack, Input, Spinner
 import { path } from '@tauri-apps/api'
 import { readDir } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
+import { listen } from '@tauri-apps/api/event'
 import { ArrowLeft, ArrowRight, File, Folder } from '../node_modules/lucide-react'
-import { useDebouncedState } from '@mantine/hooks'
-import { For, block } from 'million/react'
 import useUndoRedo from '@/lib/useUndoRedo'
 
 const MAX_FILE_NAME_LENGTH = 18
@@ -58,6 +57,18 @@ const Home: FC = () => {
     toDo()
   }, [currentDirectory])
 
+
+  useEffect(() => {
+    const unlisten = listen('add', event => {
+      setReadDirArray(prevValue => [...prevValue, event.payload[0]] as FileEntry[])
+      console.log(event.payload)
+    })
+
+    return () => {
+      unlisten.then(f => f())
+    }
+  }, [])
+
   const directoryRef = useRef<HTMLInputElement>(null)
   
   return (
@@ -76,11 +87,7 @@ const Home: FC = () => {
         <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={async event => {
           setIsLoading(true)
 
-          await invoke('find_file', { command: `${currentDirectory},${event.target.value}` }).then(fileEntries => {
-            console.log(fileEntries)
-            setReadDirArray(fileEntries as FileEntry[])
-            setIsLoading(false)
-          })
+          await invoke('find_files_and_folders', { command: `${currentDirectory},${event.target.value}` })
         }} />
       </VStack>
 
