@@ -1,5 +1,4 @@
 import type { FC } from 'react'
-import type { FileEntry } from '@tauri-apps/api/fs'
 import { useState, useEffect, useRef } from 'react'
 import { Alert, AlertDescription, AlertIcon, Box, Button, HStack, Input, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
 import { path } from '@tauri-apps/api'
@@ -16,11 +15,15 @@ type folderReferencesProps = {
   directory: () => Promise<string>
 }
 
-const foundDirs: FileEntry[] = []
+type addEventProps = {
+  isFolder: 'yes' | 'no'
+  name: string
+  path: string
+}
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
-  const [readDirArray, setReadDirArray] = useState<FileEntry[]>(foundDirs)
+  const [readDirArray, setReadDirArray] = useState<addEventProps[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
   const [directoryIssue, setDirectoryIssue] = useState<boolean>(false)
@@ -42,26 +45,35 @@ const Home: FC = () => {
     isRedoPossible: isCurrentDirectoryRedoPossible
   } = useUndoRedo('')
 
-  useEffect(() => {
-    const toDo = async () => {
-      try {
-        await readDir(currentDirectory).then(value => {
-          setDirectoryIssue(false)
-          setReadDirArray(value)
-        })
-      } catch {
-        setDirectoryIssue(true)
-      }
-    }
+  // useEffect(() => {
+  //   const toDo = async () => {
+  //     try {
+  //       await readDir(currentDirectory).then(value => {
+  //         setDirectoryIssue(false)
+  //         setReadDirArray(value)
+  //       })
+  //     } catch {
+  //       setDirectoryIssue(true)
+  //     }
+  //   }
 
-    toDo()
-  }, [currentDirectory])
+  //   toDo()
+  // }, [currentDirectory])
 
 
   useEffect(() => {
     const unlisten = listen('add', event => {
-      setReadDirArray(prevValue => [...prevValue, event.payload[0]] as FileEntry[])
-      console.log(event.payload)
+      setReadDirArray(prevValue => [...prevValue, event.payload] as addEventProps[])
+    })
+
+    return () => {
+      unlisten.then(f => f())
+    }
+  }, [])
+
+  useEffect(() => {
+    const unlisten = listen('remove_all', () => {
+      setReadDirArray([])
     })
 
     return () => {
@@ -87,7 +99,9 @@ const Home: FC = () => {
         <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={async event => {
           setIsLoading(true)
 
-          await invoke('find_files_and_folders', { command: `${currentDirectory},${event.target.value}` })
+          await invoke('find_files_and_folders', { command: `${currentDirectory},${event.target.value}` }).then(() => {
+            setIsLoading(false)
+          })
         }} />
       </VStack>
 
@@ -122,14 +136,14 @@ const Home: FC = () => {
             <Button isDisabled={!isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
               if (isCurrentDirectoryUndoPossible) {
                 undoCurrentDirectory()
-                setReadDirArray(foundDirs)
+                setReadDirArray([])
               }
 
             }}><ArrowLeft /></Button>
             <Button isDisabled={!isCurrentDirectoryRedoPossible} rounded="full" onClick={() => {
               if (isCurrentDirectoryRedoPossible) {
                 redoCurrentDirectory()
-                setReadDirArray(foundDirs)
+                setReadDirArray([])
               }
             }}><ArrowRight /></Button>
           </HStack>
@@ -162,13 +176,13 @@ const Home: FC = () => {
           )}
 
           {Array.from(readDirArray.sort((a, b) => {
-            if (Object.keys(a).length > Object.keys(b).length) {
+            if (a.isFolder === 'yes') {
               return -1
             } else {
               return 1
             }
           }).map((fileOrFolder, index) => {
-              const isFolder = Object.keys(fileOrFolder).length === 3
+              const isFolder = fileOrFolder.isFolder === 'yes'
 
               return (
                 <Tooltip key={index} label={fileOrFolder.path} placement="top">

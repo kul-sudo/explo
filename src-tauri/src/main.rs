@@ -6,6 +6,16 @@ use std::collections::HashMap;
 use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
 
+fn remove_extension(full_filename: String) -> String {
+    let pos: Option<usize> = full_filename.rfind('.');
+
+    if pos == None {
+        return full_filename
+    } else {
+        return full_filename[0..pos.unwrap()].to_string()
+    }
+}
+
 #[tauri::command]
 fn open_file_in_default_application(file_name: String) -> () {
     let _ = open::that(file_name);
@@ -15,34 +25,34 @@ fn open_file_in_default_application(file_name: String) -> () {
 async fn find_files_and_folders(app_handle: AppHandle, command: String) {
     let args: Vec<&str> = command.split(',').collect();
 
-    let directory = args[0];
-    let target_file = args[1];
+    let directory: &str = args[0];
+    let target_file: &str = args[1];
 
-
-    for entry in WalkDir::new(directory)
+    let mut walkdir_iterator = WalkDir::new(directory)
         .follow_links(true)
         .into_iter()
-        .filter_map(|e| e.ok()) {
-            let mut results: Vec<HashMap<&str, String>> = Vec::new();
-            
-            let f_name = entry.file_name().to_string_lossy().to_string();
-            
-            if directory != entry.path().to_string_lossy().to_string() && f_name.contains(target_file) {
-                if entry.path().is_dir() {
-                    results.push(HashMap::from([
-                        ("children", String::default()),
-                        ("name", entry.file_name().to_string_lossy().to_string()),
-                        ("path", entry.path().to_string_lossy().to_string())
-                    ]))
+        .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
+        .filter(|entry| directory != entry.path().to_string_lossy().to_string() && remove_extension(entry.file_name().to_string_lossy().to_string()).contains(target_file))
+        .peekable();
+    
+    if walkdir_iterator.peek().is_none() {
+        let _ = app_handle.emit_all("remove_all", String::default());
+    };
 
-                } else {
-                    results.push(HashMap::from([
-                        ("name", entry.file_name().to_string_lossy().to_string()),
-                        ("path", entry.path().to_string_lossy().to_string())
-                    ]))
-                }
+    for entry in walkdir_iterator {
+            if entry.path().is_dir() {
+                let _ = app_handle.emit_all("add", HashMap::from([
+                    ("isFolder", "yes".to_string()),
+                    ("name", entry.file_name().to_string_lossy().to_string()),
+                    ("path", entry.path().to_string_lossy().to_string())
+                ]));
+            } else {
+                let _ = app_handle.emit_all("add", HashMap::from([
+                    ("isFolder", "no".to_string()),
+                    ("name", entry.file_name().to_string_lossy().to_string()),
+                    ("path", entry.path().to_string_lossy().to_string())
+                ]));
             }
-            let _ = app_handle.emit_all("add", results.clone());
         }
 }
 
