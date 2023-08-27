@@ -28,18 +28,11 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
     let directory: &str = args[0];
     let target_file: &str = args[1];
 
-    let mut walkdir_iterator = WalkDir::new(directory)
+    for entry in WalkDir::new(directory)
         .follow_links(true)
         .into_iter()
         .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-        .filter(|entry| directory != entry.path().to_string_lossy().to_string() && remove_extension(entry.file_name().to_string_lossy().to_string()).contains(target_file))
-        .peekable();
-    
-    if walkdir_iterator.peek().is_none() {
-        let _ = app_handle.emit_all("remove_all", String::default());
-    };
-
-    for entry in walkdir_iterator {
+        .filter(|entry| directory != entry.path().to_string_lossy().to_string() && remove_extension(entry.file_name().to_string_lossy().to_string()).contains(target_file)) {
             if entry.path().is_dir() {
                 let _ = app_handle.emit_all("add", HashMap::from([
                     ("isFolder", "yes".to_string()),

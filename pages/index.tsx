@@ -98,6 +98,7 @@ const Home: FC = () => {
 
         <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={async event => {
           setIsLoading(true)
+          setReadDirArray([])
 
           await invoke('find_files_and_folders', { command: `${currentDirectory},${event.target.value}` }).then(() => {
             setIsLoading(false)
