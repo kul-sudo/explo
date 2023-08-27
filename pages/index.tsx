@@ -35,7 +35,7 @@ const Home: FC = () => {
       setIsLoading(true)
       setReadDirArray([])
 
-      if (searchInDirectory === '') {
+      if (searchInDirectory === '' && currentDirectory !== '') {
         invoke('read_directory', { directory: currentDirectory }).then(() => {
           setIsLoading(false)
         })
@@ -93,9 +93,11 @@ const Home: FC = () => {
     setIsLoading(true)
     setReadDirArray([])
 
-    invoke('read_directory', { directory: currentDirectory }).then(() => {
-      setIsLoading(false)
-    })
+    if (currentDirectory !== '') {
+      invoke('read_directory', { directory: currentDirectory }).then(() => {
+        setIsLoading(false)
+      })
+    }
   }, [currentDirectory, setIsLoading])
 
   const directoryRef = useRef<HTMLInputElement>(null)

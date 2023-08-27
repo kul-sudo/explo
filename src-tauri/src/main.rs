@@ -18,13 +18,11 @@ async fn open_file_in_default_application(file_name: String) {
 
 #[tauri::command(async)]
 async fn read_directory(app_handle: AppHandle, directory: String) {
-    for entry in read_dir(directory).unwrap() {
-        let unwrapped = entry.as_ref().unwrap();
-
+    for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
         let emit_data = HashMap::from([
-            ("isFolder", if unwrapped.path().is_dir() { "yes" } else { "no" }.to_string()),
-            ("name", unwrapped.file_name().to_string_lossy().to_string()),
-            ("path", unwrapped.path().to_string_lossy().to_string())
+            ("isFolder", if entry.path().is_dir() { "yes" } else { "no" }.to_string()),
+            ("name", entry.file_name().to_string_lossy().to_string()),
+            ("path", entry.path().to_string_lossy().to_string())
         ]);
 
         let _ = app_handle.emit_all("add_found", emit_data);
