@@ -2,10 +2,11 @@ import type { FC } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { Alert, AlertDescription, AlertIcon, Box, Button, HStack, Input, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
 import { path } from '@tauri-apps/api'
-import { readDir } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { ArrowLeft, ArrowRight, File, Folder } from '../node_modules/lucide-react'
+import { throttle } from 'lodash'
+import { useDebouncedState } from '@mantine/hooks'
 import useUndoRedo from '@/lib/useUndoRedo'
 
 const MAX_FILE_NAME_LENGTH = 18
@@ -27,6 +28,26 @@ const Home: FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
   const [directoryIssue, setDirectoryIssue] = useState<boolean>(false)
+  const [searchInDirectory, setSearchInDirectory] = useDebouncedState('', 500)
+
+  useEffect(() => {
+    const toDo = async () => {
+      setIsLoading(true)
+      setReadDirArray([])
+
+      if (searchInDirectory === '') {
+        invoke('read_directory', { directory: currentDirectory }).then(() => {
+          setIsLoading(false)
+        })
+      } else {
+        invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory}` }).then(() => {
+          setIsLoading(false)
+        })
+      }
+    }
+
+    toDo()
+  }, [searchInDirectory])
 
   const setupAppWindow = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
@@ -45,24 +66,21 @@ const Home: FC = () => {
     isRedoPossible: isCurrentDirectoryRedoPossible
   } = useUndoRedo('')
 
-  // useEffect(() => {
-  //   const toDo = async () => {
-  //     try {
-  //       await readDir(currentDirectory).then(value => {
-  //         setDirectoryIssue(false)
-  //         setReadDirArray(value)
-  //       })
-  //     } catch {
-  //       setDirectoryIssue(true)
-  //     }
-  //   }
+  useEffect(() => {
+    const throttledListener = throttle((event: { payload: addEventProps }) => {
+      setReadDirArray(prevValue => [...prevValue, event.payload] as addEventProps[])
+    }, 1000)
 
-  //   toDo()
-  // }, [currentDirectory])
+    const unlisten = listen('add', throttledListener)
 
+    return () => {
+      unlisten.then(f => f())
+      throttledListener.cancel()
+    }
+  }, [])
 
   useEffect(() => {
-    const unlisten = listen('add', event => {
+    const unlisten = listen('add_found', (event: { payload: addEventProps }) => {
       setReadDirArray(prevValue => [...prevValue, event.payload] as addEventProps[])
     })
 
@@ -72,14 +90,13 @@ const Home: FC = () => {
   }, [])
 
   useEffect(() => {
-    const unlisten = listen('remove_all', () => {
-      setReadDirArray([])
-    })
+    setIsLoading(true)
+    setReadDirArray([])
 
-    return () => {
-      unlisten.then(f => f())
-    }
-  }, [])
+    invoke('read_directory', { directory: currentDirectory }).then(() => {
+      setIsLoading(false)
+    })
+  }, [currentDirectory, setIsLoading])
 
   const directoryRef = useRef<HTMLInputElement>(null)
   
@@ -96,14 +113,7 @@ const Home: FC = () => {
           }
         }} />
 
-        <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={async event => {
-          setIsLoading(true)
-          setReadDirArray([])
-
-          await invoke('find_files_and_folders', { command: `${currentDirectory},${event.target.value}` }).then(() => {
-            setIsLoading(false)
-          })
-        }} />
+        <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
       </VStack>
 
       <HStack>
@@ -133,7 +143,7 @@ const Home: FC = () => {
         </Box>
 
         <VStack alignItems="start" position="relative" left="9rem">
-          <HStack mt={((currentDirectory === '') && !directoryIssue && readDir.length !== 0) ? '0rem' : '1rem'}>
+          <HStack mt={((currentDirectory === '') && !directoryIssue && readDirArray.length !== 0) ? '0rem' : '1rem'}>
             <Button isDisabled={!isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
               if (isCurrentDirectoryUndoPossible) {
                 undoCurrentDirectory()
@@ -191,7 +201,7 @@ const Home: FC = () => {
                     if (isFolder) {
                       setCurrentDirectory(fileOrFolder.path)
                     } else {
-                      await invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
+                      invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
                     }
                   }}>
                     <Box position="absolute" left="0.5rem">
