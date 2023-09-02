@@ -214,32 +214,32 @@ const Home: FC = () => {
               return 1
             }
           }).map((fileOrFolder, index) => {
-            const isFolder = fileOrFolder.isFolder === 'yes'
+              const isFolder = fileOrFolder.isFolder === 'yes'
 
-            return (
-              <Tooltip key={index} label={fileOrFolder.path} placement="top">
-                <Button width="15rem" variant="outline" onDoubleClick={async () => {
-                  if (isFolder) {
-                    setCurrentDirectory(fileOrFolder.path)
-                  } else {
-                    invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
-                  }
-                }}>
-                  <Box position="absolute" left="0.5rem">
-                    {isFolder ? (
-                      <Folder />
-                    ): (
-                        <File />
-                      )}
-                  </Box>
-                  <Box position="absolute" right="0.5rem">
-                    <Text>
-                      {fileOrFolder.name?.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
-                    </Text>
-                  </Box>
-                </Button>
-              </Tooltip>
-            )
+              return (
+                <Tooltip key={index} label={fileOrFolder.path} placement="top">
+                  <Button width="15rem" variant="outline" onDoubleClick={async () => {
+                    if (isFolder) {
+                      setCurrentDirectory(fileOrFolder.path)
+                    } else {
+                      invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
+                    }
+                  }}>
+                    <Box position="absolute" left="0.5rem">
+                      {isFolder ? (
+                        <Folder />
+                      ): (
+                          <File />
+                        )}
+                    </Box>
+                    <Box position="absolute" right="0.5rem">
+                      <Text>
+                        {fileOrFolder.name?.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
+                      </Text>
+                    </Box>
+                  </Button>
+                </Tooltip>
+              )
           }))}
         </VStack>
       </HStack>
