@@ -5,8 +5,6 @@ import { path } from '@tauri-apps/api'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { ArrowLeft, ArrowRight, File, Folder } from '../node_modules/lucide-react'
-import { throttle } from 'lodash'
-import { useDebouncedState } from '@mantine/hooks'
 import useUndoRedo from '@/lib/useUndoRedo'
 
 const MAX_FILE_NAME_LENGTH = 18
@@ -22,32 +20,18 @@ type addEventProps = {
   path: string
 }
 
+const TIMEOUT_SLEEP_TO_ADD = 1000
+let timeoutSleep = TIMEOUT_SLEEP_TO_ADD
+
+let timeoutIds: ReturnType<typeof setTimeout>[] = []
+
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
   const [readDirArray, setReadDirArray] = useState<addEventProps[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
   const [directoryIssue, setDirectoryIssue] = useState<boolean>(false)
-  const [searchInDirectory, setSearchInDirectory] = useDebouncedState('', 500)
-
-  useEffect(() => {
-    const toDo = async () => {
-      setIsLoading(true)
-      setReadDirArray([])
-
-      if (searchInDirectory === '' && currentDirectory !== '') {
-        invoke('read_directory', { directory: currentDirectory }).then(() => {
-          setIsLoading(false)
-        })
-      } else {
-        invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory}` }).then(() => {
-          setIsLoading(false)
-        })
-      }
-    }
-
-    toDo()
-  }, [searchInDirectory])
+  const [searchInDirectory, setSearchInDirectory] = useState<string>('')
 
   const setupAppWindow = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
@@ -67,21 +51,24 @@ const Home: FC = () => {
   } = useUndoRedo('')
 
   useEffect(() => {
-    const throttledListener = throttle((event: { payload: addEventProps }) => {
-      setReadDirArray(prevValue => [...prevValue, event.payload] as addEventProps[])
-    }, 1000)
+    const unlisten = listen('add', (event: { payload: addEventProps }) => {
+      const timeoutId = setTimeout(() => {
+        setReadDirArray(prevValue => [...prevValue, event.payload])
+      }, timeoutSleep)
 
-    const unlisten = listen('add', throttledListener)
+      timeoutIds.push(timeoutId)
+
+      timeoutSleep = timeoutSleep + TIMEOUT_SLEEP_TO_ADD
+    })
 
     return () => {
-      unlisten.then(f => f())
-      throttledListener.cancel()
+      unlisten.then(remove => remove())
     }
   }, [])
 
   useEffect(() => {
     const unlisten = listen('add_found', (event: { payload: addEventProps }) => {
-      setReadDirArray(prevValue => [...prevValue, event.payload] as addEventProps[])
+      setReadDirArray(prevValue => [...prevValue, event.payload])
     })
 
     return () => {
@@ -93,12 +80,20 @@ const Home: FC = () => {
     setIsLoading(true)
     setReadDirArray([])
 
+    timeoutSleep = TIMEOUT_SLEEP_TO_ADD
+
+    timeoutIds.forEach(timeoutId => {
+      clearTimeout(timeoutId)
+    })
+
+    timeoutIds = []
+
     if (currentDirectory !== '') {
       invoke('read_directory', { directory: currentDirectory }).then(() => {
         setIsLoading(false)
       })
     }
-  }, [currentDirectory, setIsLoading])
+  }, [currentDirectory])
 
   const directoryRef = useRef<HTMLInputElement>(null)
   
@@ -115,7 +110,31 @@ const Home: FC = () => {
           }
         }} />
 
+        <VStack>
         <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
+          <Button onClick={() => {
+            setIsLoading(true)
+            setReadDirArray([])
+            
+            timeoutSleep = TIMEOUT_SLEEP_TO_ADD
+
+            timeoutIds.forEach(timeoutId => {
+              clearTimeout(timeoutId)
+            })
+            
+            timeoutIds = []
+
+            if (searchInDirectory === '' && currentDirectory !== '') {
+              invoke('read_directory', { directory: currentDirectory }).then(() => {
+                setIsLoading(false)
+              })
+            } else {
+              invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory}` }).then(() => {
+                setIsLoading(false)
+              })
+            }
+          }}>Search</Button>
+        </VStack>
       </VStack>
 
       <HStack>
@@ -177,7 +196,7 @@ const Home: FC = () => {
             </Box>
           )}
 
-          {isLoading && (
+          {isLoading && readDirArray.length !== 0 && (
             <Spinner />
           )}
 
@@ -195,33 +214,33 @@ const Home: FC = () => {
               return 1
             }
           }).map((fileOrFolder, index) => {
-              const isFolder = fileOrFolder.isFolder === 'yes'
+            const isFolder = fileOrFolder.isFolder === 'yes'
 
-              return (
-                <Tooltip key={index} label={fileOrFolder.path} placement="top">
-                  <Button width="15rem" variant="outline" onDoubleClick={async () => {
-                    if (isFolder) {
-                      setCurrentDirectory(fileOrFolder.path)
-                    } else {
-                      invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
-                    }
-                  }}>
-                    <Box position="absolute" left="0.5rem">
-                      {isFolder ? (
-                        <Folder />
-                      ): (
-                          <File />
-                        )}
-                    </Box>
-                    <Box position="absolute" right="0.5rem">
-                      <Text>
-                        {fileOrFolder.name?.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
-                      </Text>
-                    </Box>
-                  </Button>
-                </Tooltip>
-              )
-            }))}
+            return (
+              <Tooltip key={index} label={fileOrFolder.path} placement="top">
+                <Button width="15rem" variant="outline" onDoubleClick={async () => {
+                  if (isFolder) {
+                    setCurrentDirectory(fileOrFolder.path)
+                  } else {
+                    invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
+                  }
+                }}>
+                  <Box position="absolute" left="0.5rem">
+                    {isFolder ? (
+                      <Folder />
+                    ): (
+                        <File />
+                      )}
+                  </Box>
+                  <Box position="absolute" right="0.5rem">
+                    <Text>
+                      {fileOrFolder.name?.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
+                    </Text>
+                  </Box>
+                </Button>
+              </Tooltip>
+            )
+          }))}
         </VStack>
       </HStack>
     </>

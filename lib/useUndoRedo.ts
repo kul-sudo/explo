@@ -5,13 +5,13 @@ const UNDO = 'UNDO'
 const REDO = 'REDO'
 
 type UndoRedoObject = {
-  past: string[],
-  present: string,
+  past: string[]
+  present: string
   future: string[]
 }
 
 type ActionObject = {
-  type: string,
+  type: string
   data?: string
 }
 
