@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 import { useState, useEffect, useRef } from 'react'
-import { Alert, AlertDescription, AlertIcon, Box, Button, HStack, Input, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
+import { Alert, AlertDescription, AlertIcon, Box, Button, Checkbox, HStack, Input, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
 import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
@@ -33,6 +33,7 @@ const Home: FC = () => {
 
   const [directoryIssue, setDirectoryIssue] = useState<boolean>(false)
   const [searchInDirectory, setSearchInDirectory] = useState<string>('')
+  const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
 
   const setupAppWindow = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
@@ -125,31 +126,32 @@ const Home: FC = () => {
           }
         }} />
 
-        <VStack>
         <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
-          <Button onClick={() => {
-            setIsLoading(true)
-            setReadDirArray([])
-            
-            timeoutSleep = TIMEOUT_SLEEP_TO_ADD
+        
+        <Checkbox defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
 
-            timeoutIds.forEach(timeoutId => {
-              clearTimeout(timeoutId)
+        <Button onClick={() => {
+          setIsLoading(true)
+          setReadDirArray([])
+
+          timeoutSleep = TIMEOUT_SLEEP_TO_ADD
+
+          timeoutIds.forEach(timeoutId => {
+            clearTimeout(timeoutId)
+          })
+
+          timeoutIds = []
+
+          if (searchInDirectory === '' && currentDirectory !== '') {
+            invoke('read_directory', { directory: currentDirectory }).then(() => {
+              setIsLoading(false)
             })
-            
-            timeoutIds = []
-
-            if (searchInDirectory === '' && currentDirectory !== '') {
-              invoke('read_directory', { directory: currentDirectory }).then(() => {
-                setIsLoading(false)
-              })
-            } else {
-              invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory}` }).then(() => {
-                setIsLoading(false)
-              })
-            }
-          }}>Search</Button>
-        </VStack>
+          } else {
+            invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory},${isIncludeHiddenFoldersChecked}` }).then(() => {
+              setIsLoading(false)
+            })
+          }
+        }}>Search</Button>
       </VStack>
 
       <HStack>

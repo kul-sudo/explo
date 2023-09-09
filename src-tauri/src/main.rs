@@ -16,7 +16,11 @@ fn remove_extension(full_filename: &str) -> String {
     return Path::new(full_filename).file_stem().unwrap().to_string_lossy().to_string();
 }
 
-fn is_not_hidden(entry: &DirEntry) -> bool {
+fn is_not_hidden(entry: &DirEntry, include_hidden: &str) -> bool {
+    if include_hidden.to_string() == "true" {
+        return true
+    }
+
     !entry
         .path()
         .components()
@@ -43,12 +47,12 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
 
 #[tauri::command(async)]
 async fn find_files_and_folders(app_handle: AppHandle, command: String) {
-    if let [directory, target_file] = command.split(',').collect::<Vec<_>>().as_slice() {
+    if let [directory, target_file, include_hidden] = command.split(',').collect::<Vec<_>>().as_slice() {
         for entry in WalkDir::new(directory)
             .follow_links(true)
             .into_iter()
             .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-            .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).contains(target_file) && is_not_hidden(entry)) {
+            .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).contains(target_file) && is_not_hidden(entry, include_hidden)) {
                 let is_folder = entry.path().is_dir();
                 let emit_data = HashMap::from([
                     ("isFolder", if is_folder { "yes" } else { "no" }.to_string()),
