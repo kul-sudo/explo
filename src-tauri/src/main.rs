@@ -1,14 +1,26 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::fs::read_dir;
-use std::collections::HashMap;
+use std::{fs::read_dir, path::Path, collections::HashMap};
 use tauri::{AppHandle, Manager};
-use walkdir::WalkDir;
+use walkdir::{WalkDir, DirEntry};
 
-fn remove_extension(full_filename: String) -> String {
-    let pos: Option<usize> = full_filename.rfind('.');
-    full_filename[0..pos.unwrap_or(full_filename.len())].to_string()
+// lazy_static! {
+//    static ref CACHE: Mutex<Vec<HashMap<String, String>>> = Mutex::new(Vec::new());
+// }
+
+fn remove_extension(full_filename: &str) -> String {
+    if full_filename.matches(".").count() == 1 {
+        return full_filename.to_string()
+    }
+    return Path::new(full_filename).file_stem().unwrap().to_string_lossy().to_string();
+}
+
+fn is_not_hidden(entry: &DirEntry) -> bool {
+    !entry
+        .path()
+        .components()
+        .any(|c| c.as_os_str().to_string_lossy().starts_with("."))
 }
 
 #[tauri::command(async)]
@@ -36,7 +48,7 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
             .follow_links(true)
             .into_iter()
             .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-            .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_string_lossy().to_string()).contains(target_file)) {
+            .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).contains(target_file) && is_not_hidden(entry)) {
                 let is_folder = entry.path().is_dir();
                 let emit_data = HashMap::from([
                     ("isFolder", if is_folder { "yes" } else { "no" }.to_string()),

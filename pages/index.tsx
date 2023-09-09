@@ -2,6 +2,7 @@ import type { FC } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { Alert, AlertDescription, AlertIcon, Box, Button, HStack, Input, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
 import { path } from '@tauri-apps/api'
+import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { ArrowLeft, ArrowRight, File, Folder } from '../node_modules/lucide-react'
@@ -20,7 +21,7 @@ type addEventProps = {
   path: string
 }
 
-const TIMEOUT_SLEEP_TO_ADD = 1000
+const TIMEOUT_SLEEP_TO_ADD = 600
 let timeoutSleep = TIMEOUT_SLEEP_TO_ADD
 
 let timeoutIds: ReturnType<typeof setTimeout>[] = []
@@ -96,14 +97,28 @@ const Home: FC = () => {
   }, [currentDirectory])
 
   const directoryRef = useRef<HTMLInputElement>(null)
-  
+
   return (
     <>
       <VStack position="fixed" top="2" right="2">
-        <Input placeholder="Directory" width="10rem" variant="filled" ref={directoryRef} onKeyDown={event => {
+        <Input placeholder="Directory" width="10rem" variant="filled" ref={directoryRef} onKeyDown={async event => {
           if (event.key === 'Enter') {
             if (directoryRef.current) {
               if (directoryRef.current.value !== currentDirectory) {
+                if (await exists(currentDirectory)) {
+                  setDirectoryIssue(true)
+
+                  setReadDirArray([])
+
+                  timeoutSleep = TIMEOUT_SLEEP_TO_ADD
+
+                  timeoutIds.forEach(timeoutId => {
+                    clearTimeout(timeoutId)
+                  })
+
+                  timeoutIds = []
+                }
+
                 setCurrentDirectory(directoryRef.current.value)
               }
             }
@@ -180,27 +195,25 @@ const Home: FC = () => {
             }}><ArrowRight /></Button>
           </HStack>
 
-          {readDirArray.length !== 0 && (
-            <Box>
-              {directoryIssue ? (
-                <Alert status="error" rounded="xl">
+          <Box>
+            {(directoryIssue && readDirArray.length === 0) ? (
+              <Alert status="error" rounded="xl">
+                <AlertIcon />
+                <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
+              </Alert>
+            ): (
+                <Alert status="success" rounded="xl">
                   <AlertIcon />
                   <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
                 </Alert>
-              ): (
-                  <Alert status="success" rounded="xl">
-                    <AlertIcon />
-                    <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
-                  </Alert>
-                )}
-            </Box>
-          )}
+              )}
+          </Box>
 
           {isLoading && readDirArray.length !== 0 && (
             <Spinner />
           )}
 
-          {readDirArray.length === 0 && (
+          {readDirArray.length === 0 && !directoryIssue && (
             <Alert status="warning" rounded="xl">
               <AlertIcon />
               <AlertDescription fontWeight="medium">No files found 🤔</AlertDescription>
