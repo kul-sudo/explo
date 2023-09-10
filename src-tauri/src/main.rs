@@ -1,13 +1,19 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, path::Path, collections::HashMap};
+use std::{fs::read_dir, path::Path, collections::HashMap, sync::Mutex};
 use tauri::{AppHandle, Manager};
 use walkdir::{WalkDir, DirEntry};
+use lazy_static::lazy_static;
 
-// lazy_static! {
-//    static ref CACHE: Mutex<Vec<HashMap<String, String>>> = Mutex::new(Vec::new());
-// }
+lazy_static! {
+   static ref STOP: Mutex<bool> = Mutex::new(false);
+}
+
+#[tauri::command]
+fn set_stop(value: bool) {
+    *STOP.lock().unwrap() = value
+}
 
 fn remove_extension(full_filename: &str) -> String {
     if full_filename.matches(".").count() == 1 {
@@ -53,8 +59,13 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
             .into_iter()
             .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
             .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).contains(target_file) && is_not_hidden(entry, include_hidden)) {
+                if *STOP.lock().unwrap() {
+                    *STOP.lock().unwrap() = false;
+                    return
+                }
+                
                 let is_folder = entry.path().is_dir();
-                let emit_data = HashMap::from([
+                let emit_data: HashMap<&str, String> = HashMap::from([
                     ("isFolder", if is_folder { "yes" } else { "no" }.to_string()),
                     ("name", entry.file_name().to_string_lossy().to_string()),
                     ("path", entry.path().to_string_lossy().to_string())
@@ -68,7 +79,7 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_file_in_default_application, find_files_and_folders, read_directory])
+        .invoke_handler(tauri::generate_handler![open_file_in_default_application, find_files_and_folders, read_directory, set_stop])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

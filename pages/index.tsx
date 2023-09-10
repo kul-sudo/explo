@@ -1,4 +1,4 @@
-import type { FC } from 'react'
+import type { CSSProperties, FC } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { Alert, AlertDescription, AlertIcon, Box, Button, Checkbox, HStack, Input, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
 import { path } from '@tauri-apps/api'
@@ -7,6 +7,7 @@ import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { ArrowLeft, ArrowRight, File, Folder } from '../node_modules/lucide-react'
 import useUndoRedo from '@/lib/useUndoRedo'
+import { FixedSizeList } from 'react-window'
 
 const MAX_FILE_NAME_LENGTH = 18
 
@@ -21,19 +22,20 @@ type addEventProps = {
   path: string
 }
 
-const TIMEOUT_SLEEP_TO_ADD = 600
-let timeoutSleep = TIMEOUT_SLEEP_TO_ADD
-
-let timeoutIds: ReturnType<typeof setTimeout>[] = []
+type RowProps = {
+  data: addEventProps[]
+  index: number
+  style: CSSProperties
+}
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
   const [readDirArray, setReadDirArray] = useState<addEventProps[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
-  const [directoryIssue, setDirectoryIssue] = useState<boolean>(false)
   const [searchInDirectory, setSearchInDirectory] = useState<string>('')
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
+  const [isSearching, setIsSearching] = useState<boolean>(false)
 
   const setupAppWindow = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
@@ -54,13 +56,7 @@ const Home: FC = () => {
 
   useEffect(() => {
     const unlisten = listen('add', (event: { payload: addEventProps }) => {
-      const timeoutId = setTimeout(() => {
-        setReadDirArray(prevValue => [...prevValue, event.payload])
-      }, timeoutSleep)
-
-      timeoutIds.push(timeoutId)
-
-      timeoutSleep = timeoutSleep + TIMEOUT_SLEEP_TO_ADD
+      setReadDirArray(prevValue => [...prevValue, event.payload])
     })
 
     return () => {
@@ -74,7 +70,7 @@ const Home: FC = () => {
     })
 
     return () => {
-      unlisten.then(f => f())
+      unlisten.then(remove => remove())
     }
   }, [])
 
@@ -82,76 +78,77 @@ const Home: FC = () => {
     setIsLoading(true)
     setReadDirArray([])
 
-    timeoutSleep = TIMEOUT_SLEEP_TO_ADD
-
-    timeoutIds.forEach(timeoutId => {
-      clearTimeout(timeoutId)
+    invoke('read_directory', { directory: currentDirectory }).then(() => {
+      setIsLoading(false)
     })
-
-    timeoutIds = []
-
-    if (currentDirectory !== '') {
-      invoke('read_directory', { directory: currentDirectory }).then(() => {
-        setIsLoading(false)
-      })
-    }
   }, [currentDirectory])
+
+  const Row: FC<RowProps> = ({ data, index, style }) => {
+    const fileOrFolder = data[index]
+    const isFolder = fileOrFolder.isFolder === 'yes'
+
+    return (
+      <Tooltip key={index} label={fileOrFolder.path} placement="top">
+        <Button width="15rem" variant="outline" onDoubleClick={async () => {
+          if (isFolder) {
+            setCurrentDirectory(fileOrFolder.path)
+          } else {
+            invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
+          }
+        }} style={style}>
+          <Box position="absolute" left="0.5rem">
+            {isFolder ? (
+              <Folder />
+            ): (
+                <File />
+              )}
+          </Box>
+          <Box position="absolute" right="0.5rem">
+            <Text>
+              {fileOrFolder.name?.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
+            </Text>
+          </Box>
+        </Button>
+      </Tooltip>
+    )
+  }
 
   const directoryRef = useRef<HTMLInputElement>(null)
 
   return (
     <>
       <VStack position="fixed" top="2" right="2">
-        <Input placeholder="Directory" width="10rem" variant="filled" ref={directoryRef} onKeyDown={async event => {
+        <Input isDisabled={isSearching} placeholder="Directory" width="10rem" variant="filled" ref={directoryRef} onKeyDown={async event => {
           if (event.key === 'Enter') {
             if (directoryRef.current) {
               if (directoryRef.current.value !== currentDirectory) {
-                if (await exists(currentDirectory)) {
-                  setDirectoryIssue(true)
-
-                  setReadDirArray([])
-
-                  timeoutSleep = TIMEOUT_SLEEP_TO_ADD
-
-                  timeoutIds.forEach(timeoutId => {
-                    clearTimeout(timeoutId)
-                  })
-
-                  timeoutIds = []
+                if (await exists(directoryRef.current.value)) {
+                  setCurrentDirectory(directoryRef.current.value)
                 }
-
-                setCurrentDirectory(directoryRef.current.value)
               }
             }
           }
         }} />
 
-        <Input placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
-        
-        <Checkbox defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
+        <Input isDisabled={isSearching} placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
 
-        <Button onClick={() => {
+        <Checkbox isDisabled={isSearching} defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
+
+        <Button isDisabled={isSearching} onClick={() => {
           setIsLoading(true)
           setReadDirArray([])
+          setIsSearching(true)
 
-          timeoutSleep = TIMEOUT_SLEEP_TO_ADD
-
-          timeoutIds.forEach(timeoutId => {
-            clearTimeout(timeoutId)
+          invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory},${isIncludeHiddenFoldersChecked}` }).then(() => {
+            setIsLoading(false)
+            setIsSearching(false)
           })
-
-          timeoutIds = []
-
-          if (searchInDirectory === '' && currentDirectory !== '') {
-            invoke('read_directory', { directory: currentDirectory }).then(() => {
-              setIsLoading(false)
-            })
-          } else {
-            invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory},${isIncludeHiddenFoldersChecked}` }).then(() => {
-              setIsLoading(false)
-            })
-          }
         }}>Search</Button>
+        {isSearching && (
+          <Button variant="outline" onClick={async () => {
+            await invoke('set_stop', { value: true })
+          }}>Stop</Button>
+        )}
       </VStack>
 
       <HStack>
@@ -168,6 +165,7 @@ const Home: FC = () => {
             ] as folderReferencesProps[]).map((section, index) => {
                 return (
                   <Button
+                    isDisabled={isSearching}
                     width="7rem"
                     rounded="3xl"
                     key={index}
@@ -181,7 +179,7 @@ const Home: FC = () => {
         </Box>
 
         <VStack alignItems="start" position="relative" left="9rem">
-          <HStack mt={((currentDirectory === '') && !directoryIssue && readDirArray.length !== 0) ? '0rem' : '1rem'}>
+          <HStack mt="1rem">
             <Button isDisabled={!isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
               if (isCurrentDirectoryUndoPossible) {
                 undoCurrentDirectory()
@@ -197,65 +195,30 @@ const Home: FC = () => {
             }}><ArrowRight /></Button>
           </HStack>
 
-          <Box>
-            {(directoryIssue && readDirArray.length === 0) ? (
-              <Alert status="error" rounded="xl">
-                <AlertIcon />
-                <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
-              </Alert>
-            ): (
-                <Alert status="success" rounded="xl">
-                  <AlertIcon />
-                  <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
-                </Alert>
-              )}
-          </Box>
+          <Alert status="success" rounded="xl">
+            <AlertIcon />
+            <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
+          </Alert>
 
           {isLoading && readDirArray.length !== 0 && (
             <Spinner />
           )}
 
-          {readDirArray.length === 0 && !directoryIssue && (
-            <Alert status="warning" rounded="xl">
-              <AlertIcon />
-              <AlertDescription fontWeight="medium">No files found 🤔</AlertDescription>
-            </Alert>
-          )}
-
-          {Array.from(readDirArray.sort((a, b) => {
-            if (a.isFolder === 'yes') {
-              return -1
-            } else {
-              return 1
-            }
-          }).map((fileOrFolder, index) => {
-              const isFolder = fileOrFolder.isFolder === 'yes'
-
-              return (
-                <Tooltip key={index} label={fileOrFolder.path} placement="top">
-                  <Button width="15rem" variant="outline" onDoubleClick={async () => {
-                    if (isFolder) {
-                      setCurrentDirectory(fileOrFolder.path)
-                    } else {
-                      invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
-                    }
-                  }}>
-                    <Box position="absolute" left="0.5rem">
-                      {isFolder ? (
-                        <Folder />
-                      ): (
-                          <File />
-                        )}
-                    </Box>
-                    <Box position="absolute" right="0.5rem">
-                      <Text>
-                        {fileOrFolder.name?.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
-                      </Text>
-                    </Box>
-                  </Button>
-                </Tooltip>
-              )
-          }))}
+          <FixedSizeList
+            itemCount={readDirArray.length}
+            itemData={readDirArray.sort((a) => {
+              if (a.isFolder === 'yes') {
+                return -1
+              } else {
+                return 1
+              }
+            })}
+            itemSize={40}
+            width={300}
+            height={900}
+          >
+            {Row}
+          </FixedSizeList>
         </VStack>
       </HStack>
     </>
