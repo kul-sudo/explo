@@ -6,8 +6,8 @@ import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { ArrowLeft, ArrowRight, File, Folder } from '../node_modules/lucide-react'
-import useUndoRedo from '@/lib/useUndoRedo'
 import { FixedSizeList } from 'react-window'
+import useUndoRedo from '@/lib/useUndoRedo'
 
 const MAX_FILE_NAME_LENGTH = 18
 
@@ -17,7 +17,7 @@ type folderReferencesProps = {
 }
 
 type addEventProps = {
-  isFolder: 'yes' | 'no'
+  isFolder: boolean
   name: string
   path: string
 }
@@ -56,16 +56,7 @@ const Home: FC = () => {
 
   useEffect(() => {
     const unlisten = listen('add', (event: { payload: addEventProps }) => {
-      setReadDirArray(prevValue => [...prevValue, event.payload])
-    })
-
-    return () => {
-      unlisten.then(remove => remove())
-    }
-  }, [])
-
-  useEffect(() => {
-    const unlisten = listen('add_found', (event: { payload: addEventProps }) => {
+      console.log(event)
       setReadDirArray(prevValue => [...prevValue, event.payload])
     })
 
@@ -85,19 +76,18 @@ const Home: FC = () => {
 
   const Row: FC<RowProps> = ({ data, index, style }) => {
     const fileOrFolder = data[index]
-    const isFolder = fileOrFolder.isFolder === 'yes'
-
+    
     return (
       <Tooltip key={index} label={fileOrFolder.path} placement="top">
         <Button width="15rem" variant="outline" onDoubleClick={async () => {
-          if (isFolder) {
+          if (fileOrFolder.isFolder) {
             setCurrentDirectory(fileOrFolder.path)
           } else {
             invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
           }
         }} style={style}>
           <Box position="absolute" left="0.5rem">
-            {isFolder ? (
+            {fileOrFolder.isFolder ? (
               <Folder />
             ): (
                 <File />
@@ -144,9 +134,10 @@ const Home: FC = () => {
             setIsSearching(false)
           })
         }}>Search</Button>
+
         {isSearching && (
-          <Button variant="outline" onClick={async () => {
-            await invoke('set_stop', { value: true })
+          <Button variant="outline" onClick={() => {
+            invoke('set_stop', { value: true })
           }}>Stop</Button>
         )}
       </VStack>
@@ -207,7 +198,7 @@ const Home: FC = () => {
           <FixedSizeList
             itemCount={readDirArray.length}
             itemData={readDirArray.sort((a) => {
-              if (a.isFolder === 'yes') {
+              if (a.isFolder) {
                 return -1
               } else {
                 return 1

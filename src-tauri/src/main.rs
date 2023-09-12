@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{fs::read_dir, path::Path, collections::HashMap, sync::Mutex};
+use serde_json::Value;
 use tauri::{AppHandle, Manager};
 use walkdir::{WalkDir, DirEntry};
 use lazy_static::lazy_static;
@@ -10,15 +11,12 @@ lazy_static! {
    static ref STOP: Mutex<bool> = Mutex::new(false);
 }
 
-#[tauri::command]
-fn set_stop(value: bool) {
+#[tauri::command(async)]
+async fn set_stop(value: bool) {
     *STOP.lock().unwrap() = value
 }
 
 fn remove_extension(full_filename: &str) -> String {
-    if full_filename.matches(".").count() == 1 {
-        return full_filename.to_string()
-    }
     return Path::new(full_filename).file_stem().unwrap().to_string_lossy().to_string();
 }
 
@@ -41,13 +39,13 @@ async fn open_file_in_default_application(file_name: String) {
 #[tauri::command(async)]
 async fn read_directory(app_handle: AppHandle, directory: String) {
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
-        let emit_data = HashMap::from([
-            ("isFolder", if entry.path().is_dir() { "yes" } else { "no" }.to_string()),
-            ("name", entry.file_name().to_string_lossy().to_string()),
-            ("path", entry.path().to_string_lossy().to_string())
+        let emit_data: HashMap<&str, Value> = HashMap::from([
+            ("isFolder", Value::Bool(if entry.path().is_dir() { true } else { false })),
+            ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
+            ("path", Value::String(entry.path().to_string_lossy().to_string()))
         ]);
 
-        let _ = app_handle.emit_all("add_found", emit_data);
+        let _ = app_handle.emit_all("add", emit_data);
     }
 }
 
@@ -64,11 +62,10 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
                     return
                 }
                 
-                let is_folder = entry.path().is_dir();
-                let emit_data: HashMap<&str, String> = HashMap::from([
-                    ("isFolder", if is_folder { "yes" } else { "no" }.to_string()),
-                    ("name", entry.file_name().to_string_lossy().to_string()),
-                    ("path", entry.path().to_string_lossy().to_string())
+                let emit_data: HashMap<&str, Value> = HashMap::from([
+                    ("isFolder", Value::Bool(if entry.path().is_dir() { true } else { false })),
+                    ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
+                    ("path", Value::String(entry.path().to_string_lossy().to_string()))
                 ]);
 
                 let _ = app_handle.emit_all("add", emit_data);
