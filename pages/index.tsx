@@ -5,7 +5,7 @@ import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
-import { ArrowLeft, ArrowRight, File, Folder } from '../node_modules/lucide-react'
+import { ArrowLeft, ArrowRight, DiscIcon, File, Folder, HardDriveIcon } from '../node_modules/lucide-react'
 import { FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 
@@ -56,7 +56,6 @@ const Home: FC = () => {
 
   useEffect(() => {
     const unlisten = listen('add', (event: { payload: addEventProps }) => {
-      console.log(event)
       setReadDirArray(prevValue => [...prevValue, event.payload])
     })
 
@@ -73,6 +72,14 @@ const Home: FC = () => {
       setIsLoading(false)
     })
   }, [currentDirectory])
+
+  const [storageDevicesList, setStorageDevicesList] = useState<string[]>([])
+
+  useEffect(() => {
+    invoke('get_all_disks').then((diskNames: string[]) => {
+      setStorageDevicesList([...storageDevicesList, ...diskNames])
+    })
+  }, [])
 
   const Row: FC<RowProps> = ({ data, index, style }) => {
     const fileOrFolder = data[index]
@@ -166,6 +173,16 @@ const Home: FC = () => {
                   >{section.name}</Button>
                 )
               })}
+
+            {storageDevicesList.map((diskName, index) => {
+              return (
+                <Tooltip key={index} label={diskName} placement="top">
+                  <HardDriveIcon onClick={() => {
+                    setCurrentDirectory(diskName)
+                  }} />
+                </Tooltip>
+              )
+            })}
           </VStack>
         </Box>
 
