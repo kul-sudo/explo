@@ -68,18 +68,14 @@ const Home: FC = () => {
     setIsLoading(true)
     setReadDirArray([])
 
-    invoke('read_directory', { directory: currentDirectory }).then(() => {
-      setIsLoading(false)
-    })
+    if (currentDirectory !== '') {
+      invoke('read_directory', { directory: currentDirectory }).then(() => {
+        setIsLoading(false)
+      })
+    }
   }, [currentDirectory])
 
   const [storageDevicesList, setStorageDevicesList] = useState<string[]>([])
-
-  useEffect(() => {
-    invoke('get_all_disks').then((diskNames: string[]) => {
-      setStorageDevicesList([...storageDevicesList, ...diskNames])
-    })
-  }, [])
 
   const Row: FC<RowProps> = ({ data, index, style }) => {
     const fileOrFolder = data[index]
@@ -173,6 +169,14 @@ const Home: FC = () => {
                   >{section.name}</Button>
                 )
               })}
+
+            <Button onClick={async () => {
+              await invoke('get_all_disks').then(diskNames => {
+                if (Array.isArray(diskNames) && typeof diskNames.at(0) === 'string') {
+                  setStorageDevicesList([...storageDevicesList, ...diskNames])
+                }
+              })
+            }}>Load disks</Button>
 
             {storageDevicesList.map((diskName, index) => {
               return (
