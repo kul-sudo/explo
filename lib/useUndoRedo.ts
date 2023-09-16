@@ -1,8 +1,10 @@
 import { Reducer, useReducer } from 'react'
 
-const SET_STATE = 0
-const UNDO = 1
-const REDO = 2
+enum ActionTypes {
+  SET_STATE,
+  UNDO,
+  REDO
+}
 
 type UndoRedoObject = {
   past: string[]
@@ -11,31 +13,32 @@ type UndoRedoObject = {
 }
 
 type ActionObject = {
-  type: 0 | 1 | 2
+  type: ActionTypes
   data?: string
 }
 
 const reducerWithUndoRedo: Reducer<UndoRedoObject, ActionObject> = (state, action) => {
-  const { past, present, future } = state
-
   switch (action.type) {
-    case SET_STATE:
+    case ActionTypes.SET_STATE:
       return {
-        past: [...past, present],
+        ...state,
+        past: [...state.past, state.present],
         present: action.data!,
         future: []
       }
-    case UNDO:
+    case ActionTypes.UNDO:
       return {
-        past: past.slice(0, past.length - 1),
-        present: past[past.length - 1],
-        future: [present, ...future]
+        ...state,
+        past: state.past.slice(0, -1),
+        present: state.past[state.past.length - 1],
+        future: [state.present, ...state.future]
       }
-    case REDO:
+    case ActionTypes.REDO:
       return {
-        past: [...past, present],
-        present: future[0],
-        future: future.slice(1)
+        ...state,
+        past: [...state.past, state.present],
+        present: state.future[0],
+        future: state.future.slice(1)
       }
     default:
       throw new Error()
@@ -51,9 +54,10 @@ const useUndoRedo = (initialState: string) => {
 
   const { past, present, future }: { past: string[], present: string, future: string[] } = state
 
-  const setState = (newState: string) => dispatch({ type: SET_STATE, data: newState })
-  const undo = () => dispatch({ type: UNDO })
-  const redo = () => dispatch({ type: REDO })
+  const setState = (newState: string) => dispatch({ type: ActionTypes.SET_STATE, data: newState })
+  const undo = () => dispatch({ type: ActionTypes.UNDO })
+  const redo = () => dispatch({ type: ActionTypes.REDO })
+
   const isUndoPossible = past && past.length > 0
   const isRedoPossible = future && future.length > 0
 

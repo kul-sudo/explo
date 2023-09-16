@@ -29,6 +29,8 @@ type RowProps = {
 }
 
 type VolumesListProps = {
+  is_removable: boolean
+  kind: 'HDD' | 'SSD'
   mountpoint: string
   available_gb: number
   used_gb: number
@@ -119,7 +121,7 @@ const Home: FC = () => {
   return (
     <>
       <VStack position="fixed" top="2" right="2">
-        <Input isDisabled={isSearching} placeholder="Directory" width="10rem" variant="filled" ref={directoryRef} onKeyDown={async event => {
+        <Input ref={directoryRef} isDisabled={isSearching} placeholder="Directory" width="10rem" variant="filled" onKeyDown={async event => {
           if (event.key === 'Enter') {
             if (directoryRef.current) {
               if (directoryRef.current.value !== currentDirectory) {
@@ -148,65 +150,61 @@ const Home: FC = () => {
 
         {isSearching && (
           <Button variant="outline" onClick={() => {
-            invoke('set_stop', { value: true })
+            invoke('stop_finding')
           }}>Stop</Button>
         )}
       </VStack>
 
       <HStack>
-        <Box height="100vh" position="fixed" top="0" left="0" backgroundColor="blackAlpha.400">
-          <VStack pt="0.5rem" px="0.5rem">
-            {Array.from([
-              { name: 'Desktop', directory: apiPath?.desktopDir },
-              { name: 'Home', directory: apiPath?.homeDir },
-              { name: 'Documents', directory: apiPath?.documentDir },
-              { name: 'Downloads', directory: apiPath?.downloadDir },
-              { name: 'Pictures', directory: apiPath?.pictureDir },
-              { name: 'Music', directory: apiPath?.audioDir },
-              { name: 'Videos', directory: apiPath?.videoDir }
-            ] as FolderReferencesProps[]).map((section, index) => {
-                return (
-                  <Button
-                    isDisabled={isSearching}
-                    width="7rem"
-                    rounded="full"
-                    key={index}
-                    onClick={async () => {
-                      setCurrentDirectory(await section.directory())
-                    }}
-                  >{section.name}</Button>
-                )
-              })}
-
-            <Button width="7rem" variant="outline" onClick={() => {
-              invoke('get_volumes').then(volumes => {
-                const volumesWithTypes = volumes as VolumesListProps
-
-                setVolumesList(volumesWithTypes)
-              })
-            }}>
-              <HStack>
-                <Text>Load</Text>
-                <HardDriveIcon />
-              </HStack>
-            </Button>
-
-            {volumesList.map((volume, index) => {
+        <VStack pt="0.5rem" px="0.5rem" height="100vh" position="fixed" top="0" left="0" backgroundColor="blackAlpha.400" overflowY="scroll">
+          {([
+            { name: 'Desktop', directory: apiPath?.desktopDir },
+            { name: 'Home', directory: apiPath?.homeDir },
+            { name: 'Documents', directory: apiPath?.documentDir },
+            { name: 'Downloads', directory: apiPath?.downloadDir },
+            { name: 'Pictures', directory: apiPath?.pictureDir },
+            { name: 'Music', directory: apiPath?.audioDir },
+            { name: 'Videos', directory: apiPath?.videoDir }
+          ] as FolderReferencesProps[]).map((section, index) => {
               return (
-                <VStack key={index}>
-                  <Tooltip label={volume.mountpoint} placement="top">
-                    <Button variant="outline" rounded="full" onClick={() => {
-                      setCurrentDirectory(volume.mountpoint)
-                    }}>
-                      <HardDriveIcon />
-                    </Button>
-                  </Tooltip>
-                  <Progress value={volume.used_gb / volume.total_gb * 100} width="5rem" />
-                </VStack>
+                <Button
+                  key={index}
+                  isDisabled={isSearching}
+                  width="7rem"
+                  rounded="full"
+                  onClick={async () => {
+                    setCurrentDirectory(await section.directory())
+                  }}
+                >{section.name}</Button>
               )
             })}
-          </VStack>
-        </Box>
+
+          <Button width="7rem" variant="outline" onClick={() => {
+            invoke('get_volumes').then(volumes => {
+              const volumesWithTypes = volumes as VolumesListProps
+
+              setVolumesList(volumesWithTypes)
+            })
+          }}>
+            <HStack>
+              <Text>Load</Text>
+              <HardDriveIcon />
+            </HStack>
+          </Button>
+
+          {volumesList.map((volume, index) => (
+            <VStack key={index}>
+              <Tooltip label={`${(volume.is_removable ? 'Removable': (volume.kind === 'SSD' ? 'SSD' : 'HDD'))} ${volume.mountpoint}`} placement="top">
+                <Button variant="outline" rounded="full" onClick={() => {
+                  setCurrentDirectory(volume.mountpoint)
+                }}>
+                  <HardDriveIcon />
+                </Button>
+              </Tooltip>
+              <Progress value={volume.used_gb / volume.total_gb * 100} width="5rem" />
+            </VStack>
+          ))}
+        </VStack>
 
         <VStack alignItems="start" position="relative" left="9rem">
           <HStack mt="1rem">

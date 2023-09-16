@@ -10,15 +10,17 @@ use sysinfo::{System, SystemExt, Disk, DiskExt};
 use serde::Serialize;
 
 lazy_static! {
-   static ref STOP: Mutex<bool> = Mutex::new(false);
+   static ref STOP_FINDING: Mutex<bool> = Mutex::new(false);
 }
 
 fn bytes_to_gb(bytes: u64) -> u16 {
-    (bytes / (1e+9 as u64)) as u16
+    return (bytes / (1e+9 as u64)) as u16
 }
 
 #[derive(Serialize)]
 pub struct Volume {
+    is_removable: bool,
+    kind: String,
     mountpoint: PathBuf,
     available_gb: u16,
     used_gb: u16,
@@ -33,8 +35,12 @@ impl Volume {
         let total_gb = bytes_to_gb(disk.total_space());
 
         let mountpoint = disk.mount_point().to_path_buf();
-        
+        let kind = format!("{:?}", disk.kind());
+        let is_removable = disk.is_removable();
+
         Self {
+            is_removable,
+            kind,
             mountpoint,
             available_gb,
             used_gb,
@@ -54,7 +60,7 @@ fn get_volumes() -> Result<Vec<Volume>, ()> {
         .map(|disk| {
             let volume = Volume::from(disk);
 
-            volume
+            return volume
         })
         .collect();
 
@@ -62,8 +68,8 @@ fn get_volumes() -> Result<Vec<Volume>, ()> {
 }
 
 #[tauri::command(async)]
-async fn set_stop(value: bool) {
-    *STOP.lock().unwrap() = value
+async fn stop_finding() {
+    *STOP_FINDING.lock().unwrap() = true
 }
 
 fn remove_extension(full_filename: &str) -> String {
@@ -107,8 +113,8 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
             .into_iter()
             .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
             .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).contains(target_file) && is_not_hidden(entry, include_hidden)) {
-                if *STOP.lock().unwrap() {
-                    *STOP.lock().unwrap() = false;
+                if *STOP_FINDING.lock().unwrap() {
+                    *STOP_FINDING.lock().unwrap() = false;
                     return
                 }
                 
@@ -126,7 +132,7 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_file_in_default_application, find_files_and_folders, read_directory, set_stop, get_volumes])
+        .invoke_handler(tauri::generate_handler![open_file_in_default_application, find_files_and_folders, read_directory, stop_finding, get_volumes])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
