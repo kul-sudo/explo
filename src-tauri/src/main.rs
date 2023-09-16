@@ -1,48 +1,64 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, path::Path, collections::HashMap, sync::Mutex};
+use std::{fs::read_dir, path::{Path, PathBuf}, collections::HashMap, sync::Mutex};
 use serde_json::Value;
 use tauri::{AppHandle, Manager};
 use walkdir::{WalkDir, DirEntry};
 use lazy_static::lazy_static;
-use sysinfo::{System, SystemExt};
-use regex::Regex;
+use sysinfo::{System, SystemExt, Disk, DiskExt};
+use serde::Serialize;
 
 lazy_static! {
    static ref STOP: Mutex<bool> = Mutex::new(false);
 }
 
-fn extract_path_from_disk(disk: &str) -> Option<String> {
-    // Define a regular expression pattern to match the path.
-    let re = Regex::new(r#"Disk\("([^"]+)"\)"#).unwrap();
+fn bytes_to_gb(bytes: u64) -> u16 {
+    (bytes / (1e+9 as u64)) as u16
+}
 
-    // Check if the regular expression matches the input.
-    if let Some(captures) = re.captures(disk) {
-        // Extract the path captured by the regular expression.
-        if let Some(path) = captures.get(1) {
-            return Some(path.as_str().to_string());
+#[derive(Serialize)]
+pub struct Volume {
+    mountpoint: PathBuf,
+    available_gb: u16,
+    used_gb: u16,
+    total_gb: u16,
+}
+
+impl Volume {
+    fn from(disk: &Disk) -> Self {
+        let used_bytes = disk.total_space() - disk.available_space();
+        let available_gb = bytes_to_gb(disk.available_space());
+        let used_gb = bytes_to_gb(used_bytes);
+        let total_gb = bytes_to_gb(disk.total_space());
+
+        let mountpoint = disk.mount_point().to_path_buf();
+        
+        Self {
+            mountpoint,
+            available_gb,
+            used_gb,
+            total_gb
         }
     }
-
-    None
 }
 
 #[tauri::command]
-fn get_all_disks() -> Vec<String> {
+fn get_volumes() -> Result<Vec<Volume>, ()> {
     let mut sys = System::new_all();
-
-    // First we update all information of our `System` struct.
     sys.refresh_all();
 
-    let mut disks_to_return: Vec<String> = Vec::new();
+    let volumes = sys
+        .disks()
+        .iter()
+        .map(|disk| {
+            let volume = Volume::from(disk);
 
-    for disk in sys.disks() {
-        let path_formatted = format!("{:?}", disk);
-        disks_to_return.push(extract_path_from_disk(&path_formatted).unwrap());
-    }
+            volume
+        })
+        .collect();
 
-    return disks_to_return
+    Ok(volumes)
 }
 
 #[tauri::command(async)]
@@ -110,7 +126,7 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_file_in_default_application, find_files_and_folders, read_directory, set_stop, get_all_disks])
+        .invoke_handler(tauri::generate_handler![open_file_in_default_application, find_files_and_folders, read_directory, set_stop, get_volumes])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

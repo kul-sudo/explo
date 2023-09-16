@@ -1,8 +1,8 @@
 import { Reducer, useReducer } from 'react'
 
-const SET_STATE = 'SET_STATE'
-const UNDO = 'UNDO'
-const REDO = 'REDO'
+const SET_STATE = 0
+const UNDO = 1
+const REDO = 2
 
 type UndoRedoObject = {
   past: string[]
@@ -11,7 +11,7 @@ type UndoRedoObject = {
 }
 
 type ActionObject = {
-  type: string
+  type: 0 | 1 | 2
   data?: string
 }
 
@@ -49,7 +49,7 @@ const useUndoRedo = (initialState: string) => {
     future: []
   })
 
-  const { past, present, future } = state
+  const { past, present, future }: { past: string[], present: string, future: string[] } = state
 
   const setState = (newState: string) => dispatch({ type: SET_STATE, data: newState })
   const undo = () => dispatch({ type: UNDO })

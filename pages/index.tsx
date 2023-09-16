@@ -1,36 +1,43 @@
 import type { CSSProperties, FC } from 'react'
 import { useState, useEffect, useRef } from 'react'
-import { Alert, AlertDescription, AlertIcon, Box, Button, Checkbox, HStack, Input, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
+import { Alert, AlertDescription, AlertIcon, Box, Button, Checkbox, HStack, Input, Progress, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
 import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
-import { ArrowLeft, ArrowRight, DiscIcon, File, Folder, HardDriveIcon } from '../node_modules/lucide-react'
+import { ArrowLeft, ArrowRight, File, Folder, HardDriveIcon } from '../node_modules/lucide-react'
 import { FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 
 const MAX_FILE_NAME_LENGTH = 18
 
-type folderReferencesProps = {
+type FolderReferencesProps = {
   name: 'Desktop' | 'Home' | 'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
   directory: () => Promise<string>
 }
 
-type addEventProps = {
+type AddEventProps = {
   isFolder: boolean
   name: string
   path: string
 }
 
 type RowProps = {
-  data: addEventProps[]
+  data: AddEventProps[]
   index: number
   style: CSSProperties
 }
 
+type VolumesListProps = {
+  mountpoint: string
+  available_gb: number
+  used_gb: number
+  total_gb: number
+}[]
+
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
-  const [readDirArray, setReadDirArray] = useState<addEventProps[]>([])
+  const [readDirArray, setReadDirArray] = useState<AddEventProps[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
   const [searchInDirectory, setSearchInDirectory] = useState<string>('')
@@ -55,7 +62,7 @@ const Home: FC = () => {
   } = useUndoRedo('')
 
   useEffect(() => {
-    const unlisten = listen('add', (event: { payload: addEventProps }) => {
+    const unlisten = listen('add', (event: { payload: AddEventProps }) => {
       setReadDirArray(prevValue => [...prevValue, event.payload])
     })
 
@@ -75,7 +82,8 @@ const Home: FC = () => {
     }
   }, [currentDirectory])
 
-  const [storageDevicesList, setStorageDevicesList] = useState<string[]>([])
+
+  const [volumesList, setVolumesList] = useState<VolumesListProps>([])
 
   const Row: FC<RowProps> = ({ data, index, style }) => {
     const fileOrFolder = data[index]
@@ -156,12 +164,12 @@ const Home: FC = () => {
               { name: 'Pictures', directory: apiPath?.pictureDir },
               { name: 'Music', directory: apiPath?.audioDir },
               { name: 'Videos', directory: apiPath?.videoDir }
-            ] as folderReferencesProps[]).map((section, index) => {
+            ] as FolderReferencesProps[]).map((section, index) => {
                 return (
                   <Button
                     isDisabled={isSearching}
                     width="7rem"
-                    rounded="3xl"
+                    rounded="full"
                     key={index}
                     onClick={async () => {
                       setCurrentDirectory(await section.directory())
@@ -170,21 +178,31 @@ const Home: FC = () => {
                 )
               })}
 
-            <Button onClick={async () => {
-              await invoke('get_all_disks').then(diskNames => {
-                if (Array.isArray(diskNames) && typeof diskNames.at(0) === 'string') {
-                  setStorageDevicesList([...storageDevicesList, ...diskNames])
-                }
-              })
-            }}>Load disks</Button>
+            <Button width="7rem" variant="outline" onClick={() => {
+              invoke('get_volumes').then(volumes => {
+                const volumesWithTypes = volumes as VolumesListProps
 
-            {storageDevicesList.map((diskName, index) => {
+                setVolumesList(volumesWithTypes)
+              })
+            }}>
+              <HStack>
+                <Text>Load</Text>
+                <HardDriveIcon />
+              </HStack>
+            </Button>
+
+            {volumesList.map((volume, index) => {
               return (
-                <Tooltip key={index} label={diskName} placement="top">
-                  <HardDriveIcon onClick={() => {
-                    setCurrentDirectory(diskName)
-                  }} />
-                </Tooltip>
+                <VStack key={index}>
+                  <Tooltip label={volume.mountpoint} placement="top">
+                    <Button variant="outline" rounded="full" onClick={() => {
+                      setCurrentDirectory(volume.mountpoint)
+                    }}>
+                      <HardDriveIcon />
+                    </Button>
+                  </Tooltip>
+                  <Progress value={volume.used_gb / volume.total_gb * 100} width="5rem" />
+                </VStack>
               )
             })}
           </VStack>
