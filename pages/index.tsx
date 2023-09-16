@@ -5,7 +5,7 @@ import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
-import { ArrowLeft, ArrowRight, File, Folder, HardDriveIcon } from '../node_modules/lucide-react'
+import { ArrowLeft, ArrowRight, File, Folder, HardDriveIcon } from 'lucide-react'
 import { FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 
