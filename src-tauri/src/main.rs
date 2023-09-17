@@ -1,16 +1,16 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, path::{Path, PathBuf}, collections::HashMap, sync::Mutex};
-use serde_json::Value;
+use std::{fs::read_dir, path::{Path, PathBuf}, collections::HashMap, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 use tauri::{AppHandle, Manager};
 use walkdir::{WalkDir, DirEntry};
-use lazy_static::lazy_static;
 use sysinfo::{System, SystemExt, Disk, DiskExt};
 use serde::Serialize;
+use serde_json::Value;
+use lazy_static::lazy_static;
 
 lazy_static! {
-   static ref STOP_FINDING: Mutex<bool> = Mutex::new(false);
+   static ref STOP_FINDING: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 }
 
 fn bytes_to_gb(bytes: u64) -> u16 {
@@ -69,7 +69,7 @@ fn get_volumes() -> Result<Vec<Volume>, ()> {
 
 #[tauri::command(async)]
 async fn stop_finding() {
-    *STOP_FINDING.lock().unwrap() = true
+    STOP_FINDING.store(true, Ordering::Relaxed)
 }
 
 fn remove_extension(full_filename: &str) -> String {
@@ -113,8 +113,8 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
             .into_iter()
             .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
             .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).contains(target_file) && is_not_hidden(entry, include_hidden)) {
-                if *STOP_FINDING.lock().unwrap() {
-                    *STOP_FINDING.lock().unwrap() = false;
+                if STOP_FINDING.load(Ordering::Relaxed) {
+                    STOP_FINDING.store(false, Ordering::Relaxed);
                     return
                 }
                 

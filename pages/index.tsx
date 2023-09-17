@@ -89,7 +89,6 @@ const Home: FC = () => {
   useEffect(() => {
     const unlisten = listen('add', (event: { payload: AddEventProps }) => {
       fileOrFolderKey++
-      console.log(fileOrFolderKey)
       setReadDirArray(prevValue => [...prevValue, event.payload])
     })
 
