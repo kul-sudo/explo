@@ -1,4 +1,5 @@
-import type { CSSProperties, FC } from 'react'
+import type { FC, KeyboardEvent, RefObject } from 'react'
+import type { AddEventProps, FolderReferencesProps, RowProps, VolumesListProps } from '@/types/types'
 import { useState, useEffect, useRef } from 'react'
 import { Alert, AlertDescription, AlertIcon, Box, Button, Checkbox, HStack, Input, Progress, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
 import { path } from '@tauri-apps/api'
@@ -11,31 +12,51 @@ import useUndoRedo from '@/lib/useUndoRedo'
 
 const MAX_FILE_NAME_LENGTH = 18
 
-type FolderReferencesProps = {
-  name: 'Desktop' | 'Home' | 'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
-  directory: () => Promise<string>
+const directoryInputOnKeyDown = async (
+  event: KeyboardEvent<HTMLInputElement>,
+  directoryRef: RefObject<HTMLInputElement>,
+  currentDirectory: string,
+  setCurrentDirectory: (newState: string) => void
+) => {
+  if (event.key === 'Enter') {
+    if (directoryRef.current) {
+      if (directoryRef.current.value !== currentDirectory) {
+        if (await exists(directoryRef.current.value)) {
+          setCurrentDirectory(directoryRef.current.value)
+        }
+      }
+    }
+  }
 }
 
-type AddEventProps = {
-  isFolder: boolean
-  name: string
-  path: string
+const searchButtonOnClick = (
+  currentDirectory: string,
+  searchInDirectory: string,
+  isIncludeHiddenFoldersChecked: boolean,
+  setIsLoading: (newState: boolean) => void,
+  setReadDirArray: (newState: AddEventProps[]) => void,
+  setIsSearching: (newState: boolean) => void
+) => {
+  setIsLoading(true)
+  setReadDirArray([])
+  setIsSearching(true)
+
+  invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory},${isIncludeHiddenFoldersChecked}` }).then(() => {
+    setIsLoading(false)
+    setIsSearching(false)
+  })
 }
 
-type RowProps = {
-  data: AddEventProps[]
-  index: number
-  style: CSSProperties
+const fileOrFolderDoubleClick = (
+  fileOrFolder: AddEventProps,
+  setCurrentDirectory: (newState: string) => void
+) => {
+  if (fileOrFolder.isFolder) {
+    setCurrentDirectory(fileOrFolder.path)
+  } else {
+    invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
+  }
 }
-
-type VolumesListProps = {
-  is_removable: boolean
-  kind: 'HDD' | 'SSD'
-  mountpoint: string
-  available_gb: number
-  used_gb: number
-  total_gb: number
-}[]
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
@@ -84,21 +105,14 @@ const Home: FC = () => {
     }
   }, [currentDirectory])
 
-
   const [volumesList, setVolumesList] = useState<VolumesListProps>([])
 
   const Row: FC<RowProps> = ({ data, index, style }) => {
     const fileOrFolder = data[index]
-    
+
     return (
       <Tooltip key={index} label={fileOrFolder.path} placement="top">
-        <Button width="15rem" variant="outline" onDoubleClick={async () => {
-          if (fileOrFolder.isFolder) {
-            setCurrentDirectory(fileOrFolder.path)
-          } else {
-            invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
-          }
-        }} style={style}>
+        <Button width="15rem" variant="outline" onDoubleClick={() => fileOrFolderDoubleClick(fileOrFolder, setCurrentDirectory)} style={style}>
           <Box position="absolute" left="0.5rem">
             {fileOrFolder.isFolder ? (
               <Folder />
@@ -108,7 +122,7 @@ const Home: FC = () => {
           </Box>
           <Box position="absolute" right="0.5rem">
             <Text>
-              {fileOrFolder.name?.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
+              {fileOrFolder.name.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
             </Text>
           </Box>
         </Button>
@@ -121,16 +135,8 @@ const Home: FC = () => {
   return (
     <>
       <VStack position="fixed" top="2" right="2">
-        <Input ref={directoryRef} isDisabled={isSearching} placeholder="Directory" width="10rem" variant="filled" onKeyDown={async event => {
-          if (event.key === 'Enter') {
-            if (directoryRef.current) {
-              if (directoryRef.current.value !== currentDirectory) {
-                if (await exists(directoryRef.current.value)) {
-                  setCurrentDirectory(directoryRef.current.value)
-                }
-              }
-            }
-          }
+        <Input ref={directoryRef} isDisabled={isSearching} placeholder="Directory" width="10rem" variant="filled" onKeyDown={event => {
+          directoryInputOnKeyDown(event, directoryRef, currentDirectory, setCurrentDirectory)
         }} />
 
         <Input isDisabled={isSearching} placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
@@ -138,14 +144,14 @@ const Home: FC = () => {
         <Checkbox isDisabled={isSearching} defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
 
         <Button isDisabled={isSearching} onClick={() => {
-          setIsLoading(true)
-          setReadDirArray([])
-          setIsSearching(true)
-
-          invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory},${isIncludeHiddenFoldersChecked}` }).then(() => {
-            setIsLoading(false)
-            setIsSearching(false)
-          })
+          searchButtonOnClick(
+            currentDirectory,
+            searchInDirectory,
+            isIncludeHiddenFoldersChecked,
+            setIsLoading,
+            setReadDirArray,
+            setIsSearching
+          )
         }}>Search</Button>
 
         {isSearching && (
@@ -156,7 +162,7 @@ const Home: FC = () => {
       </VStack>
 
       <HStack>
-        <VStack pt="0.5rem" px="0.5rem" height="100vh" position="fixed" top="0" left="0" backgroundColor="blackAlpha.400" overflowY="scroll">
+        <VStack pt="0.5rem" px="0.5rem" height="100vh" position="fixed" top="0" left="0" backgroundColor="blackAlpha.400">
           {([
             { name: 'Desktop', directory: apiPath?.desktopDir },
             { name: 'Home', directory: apiPath?.homeDir },
@@ -165,7 +171,7 @@ const Home: FC = () => {
             { name: 'Pictures', directory: apiPath?.pictureDir },
             { name: 'Music', directory: apiPath?.audioDir },
             { name: 'Videos', directory: apiPath?.videoDir }
-          ] as FolderReferencesProps[]).map((section, index) => {
+          ] as FolderReferencesProps).map((section, index) => {
               return (
                 <Button
                   key={index}
@@ -181,9 +187,7 @@ const Home: FC = () => {
 
           <Button width="7rem" variant="outline" onClick={() => {
             invoke('get_volumes').then(volumes => {
-              const volumesWithTypes = volumes as VolumesListProps
-
-              setVolumesList(volumesWithTypes)
+              setVolumesList(volumes as VolumesListProps)
             })
           }}>
             <HStack>
@@ -234,11 +238,13 @@ const Home: FC = () => {
 
           <FixedSizeList
             itemCount={readDirArray.length}
-            itemData={readDirArray.sort((a) => {
-              if (a.isFolder) {
+            itemData={readDirArray.sort((a, b) => {
+              if (a.isFolder && !b.isFolder) {
                 return -1
-              } else {
+              } else if (b.isFolder && !a.isFolder) {
                 return 1
+              } else {
+                return 0
               }
             })}
             itemSize={40}

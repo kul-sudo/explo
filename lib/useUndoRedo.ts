@@ -1,20 +1,10 @@
+import type { ActionObject, UndoRedoObject } from '@/types/types'
 import { Reducer, useReducer } from 'react'
 
 enum ActionTypes {
   SET_STATE,
   UNDO,
   REDO
-}
-
-type UndoRedoObject = {
-  past: string[]
-  present: string
-  future: string[]
-}
-
-type ActionObject = {
-  type: ActionTypes
-  data?: string
 }
 
 const reducerWithUndoRedo: Reducer<UndoRedoObject, ActionObject> = (state, action) => {
