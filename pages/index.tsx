@@ -1,7 +1,7 @@
 import type { FC, KeyboardEvent, RefObject } from 'react'
 import type { AddEventProps, FolderReferencesProps, RowProps, VolumesListProps } from '@/types/types'
-import { useState, useEffect, useRef } from 'react'
 import { Alert, AlertDescription, AlertIcon, Box, Button, Checkbox, HStack, Input, Progress, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
@@ -58,6 +58,8 @@ const fileOrFolderDoubleClick = (
   }
 }
 
+let fileOrFolderKey = 0
+
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
   const [readDirArray, setReadDirArray] = useState<AddEventProps[]>([])
@@ -86,6 +88,8 @@ const Home: FC = () => {
 
   useEffect(() => {
     const unlisten = listen('add', (event: { payload: AddEventProps }) => {
+      fileOrFolderKey++
+      console.log(fileOrFolderKey)
       setReadDirArray(prevValue => [...prevValue, event.payload])
     })
 
@@ -97,6 +101,7 @@ const Home: FC = () => {
   useEffect(() => {
     setIsLoading(true)
     setReadDirArray([])
+    fileOrFolderKey = 0
 
     if (currentDirectory !== '') {
       invoke('read_directory', { directory: currentDirectory }).then(() => {
@@ -104,6 +109,18 @@ const Home: FC = () => {
       })
     }
   }, [currentDirectory])
+
+  const sortedReadDirArray = useMemo(() => {
+    return readDirArray.slice().sort((a, b) => {
+      if (a.isFolder && !b.isFolder) {
+        return -1
+      } else if (b.isFolder && !a.isFolder) {
+        return 1
+      } else {
+        return 0
+      }
+    })
+  }, [readDirArray])
 
   const [volumesList, setVolumesList] = useState<VolumesListProps>([])
 
@@ -131,6 +148,16 @@ const Home: FC = () => {
   }
 
   const directoryRef = useRef<HTMLInputElement>(null)
+
+  const baseDirectories: FolderReferencesProps = [
+    { name: 'Desktop', directory: apiPath?.desktopDir! },
+    { name: 'Home', directory: apiPath?.homeDir! },
+    { name: 'Documents', directory: apiPath?.documentDir! },
+    { name: 'Downloads', directory: apiPath?.downloadDir! },
+    { name: 'Pictures', directory: apiPath?.pictureDir! },
+    { name: 'Music', directory: apiPath?.audioDir! },
+    { name: 'Videos', directory: apiPath?.videoDir! }
+  ]
 
   return (
     <>
@@ -163,27 +190,19 @@ const Home: FC = () => {
 
       <HStack>
         <VStack pt="0.5rem" px="0.5rem" height="100vh" position="fixed" top="0" left="0" backgroundColor="blackAlpha.400">
-          {([
-            { name: 'Desktop', directory: apiPath?.desktopDir },
-            { name: 'Home', directory: apiPath?.homeDir },
-            { name: 'Documents', directory: apiPath?.documentDir },
-            { name: 'Downloads', directory: apiPath?.downloadDir },
-            { name: 'Pictures', directory: apiPath?.pictureDir },
-            { name: 'Music', directory: apiPath?.audioDir },
-            { name: 'Videos', directory: apiPath?.videoDir }
-          ] as FolderReferencesProps).map((section, index) => {
-              return (
-                <Button
-                  key={index}
-                  isDisabled={isSearching}
-                  width="7rem"
-                  rounded="full"
-                  onClick={async () => {
-                    setCurrentDirectory(await section.directory())
-                  }}
-                >{section.name}</Button>
-              )
-            })}
+          {baseDirectories.map((section, index) => {
+            return (
+              <Button
+                key={index}
+                isDisabled={isSearching}
+                width="7rem"
+                rounded="full"
+                onClick={async () => {
+                  setCurrentDirectory(await section.directory())
+                }}
+              >{section.name}</Button>
+            )
+          })}
 
           <Button width="7rem" variant="outline" onClick={() => {
             invoke('get_volumes').then(volumes => {
@@ -237,16 +256,9 @@ const Home: FC = () => {
           )}
 
           <FixedSizeList
-            itemCount={readDirArray.length}
-            itemData={readDirArray.sort((a, b) => {
-              if (a.isFolder && !b.isFolder) {
-                return -1
-              } else if (b.isFolder && !a.isFolder) {
-                return 1
-              } else {
-                return 0
-              }
-            })}
+            key={fileOrFolderKey}
+            itemCount={sortedReadDirArray.length}
+            itemData={sortedReadDirArray}
             itemSize={40}
             width={300}
             height={900}
