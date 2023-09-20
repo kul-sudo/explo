@@ -9,6 +9,7 @@ type AddEventProps = {
   isFolder: boolean
   name: string
   path: string
+  extension: string
 }
 
 type RowProps = {

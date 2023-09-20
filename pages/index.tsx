@@ -1,12 +1,45 @@
-import type { FC, KeyboardEvent, RefObject } from 'react'
+import type { FC, KeyboardEvent, ReactNode, RefObject } from 'react'
 import type { AddEventProps, FolderReferencesProps, RowProps, VolumesListProps } from '@/types/types'
-import { Alert, AlertDescription, AlertIcon, Box, Button, Checkbox, HStack, Input, Progress, Spinner, Text, Tooltip, VStack } from '@chakra-ui/react'
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  Box,
+  Button,
+  Checkbox,
+  HStack,
+  Input,
+  Progress,
+  Spinner,
+  Text,
+  Tooltip,
+  VStack
+} from '@chakra-ui/react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
-import { ArrowLeft, ArrowRight, File, Folder, HardDriveIcon } from 'lucide-react'
+import { ArrowLeftIcon, ArrowRightIcon, FileIcon, FolderIcon, HardDriveIcon } from 'lucide-react'
+import {
+  AiFillUsb as UsbIcon,
+  AiFillHtml5 as HTMLIcon
+} from 'react-icons/ai'
+import {
+  BiLogoTypescript as TypeScriptIcon,
+  BiLogoJavascript as JavaScriptIcon,
+  BiLogoPython as PythonIcon,
+  BiSolidFileJson as JsonIcon,
+  BiSolidFileTxt as TXTIcon
+} from 'react-icons/bi'
+import {
+  BsFileEarmarkZipFill as ZipIcon,
+  BsImageFill as ImageIcon,
+  BsFillFileEarmarkPdfFill as PDFIcon
+} from 'react-icons/bs'
+import {
+  SiLua as LuaIcon
+} from 'react-icons/si'
 import { FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 
@@ -41,7 +74,7 @@ const searchButtonOnClick = (
   setReadDirArray([])
   setIsSearching(true)
 
-  invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory},${isIncludeHiddenFoldersChecked}` }).then(() => {
+  invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory.toLowerCase()},${isIncludeHiddenFoldersChecked}` }).then(() => {
     setIsLoading(false)
     setIsSearching(false)
   })
@@ -59,6 +92,39 @@ const fileOrFolderDoubleClick = (
 }
 
 let fileOrFolderKey = 0
+
+const iconsForExtensions: Record<string, ReactNode> = {
+  'ts': <TypeScriptIcon size={25} />,
+  'tsx': <TypeScriptIcon size={25} />,
+  'js': <JavaScriptIcon size={25} />,
+  'jsx': <JavaScriptIcon size={25} />,
+  'py': <PythonIcon size={25} />,
+  'json': <JsonIcon size={25} />,
+  'zip': <ZipIcon size={25} />,
+  'html': <HTMLIcon size={25} />,
+  'png': <ImageIcon size={25} />,
+  'jpg': <ImageIcon size={25} />,
+  'jpeg': <ImageIcon size={25} />,
+  'txt': <TXTIcon size={25} />,
+  'pdf': <PDFIcon size={25} />,
+  'lua': <LuaIcon size={25} />
+}
+
+const FileOrFolderItem: FC<{fileOrFolder: AddEventProps}> = ({ fileOrFolder }) => {
+  if (typeof iconsForExtensions[fileOrFolder.extension] === 'object') {
+    return (
+      iconsForExtensions[fileOrFolder.extension]
+    )
+  } else if (fileOrFolder.isFolder) {
+    return (
+      <FolderIcon />
+    )
+  } else {
+    return (
+      <FileIcon />
+    )
+  }
+}
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
@@ -123,6 +189,12 @@ const Home: FC = () => {
 
   const [volumesList, setVolumesList] = useState<VolumesListProps>([])
 
+  useEffect(() => {
+    invoke('get_volumes').then(volumes => {
+      setVolumesList(volumes as VolumesListProps)
+    })
+  }, [])
+
   const Row: FC<RowProps> = ({ data, index, style }) => {
     const fileOrFolder = data[index]
 
@@ -130,11 +202,7 @@ const Home: FC = () => {
       <Tooltip key={index} label={fileOrFolder.path} placement="top">
         <Button width="15rem" variant="outline" onDoubleClick={() => fileOrFolderDoubleClick(fileOrFolder, setCurrentDirectory)} style={style}>
           <Box position="absolute" left="0.5rem">
-            {fileOrFolder.isFolder ? (
-              <Folder />
-            ): (
-                <File />
-              )}
+            <FileOrFolderItem fileOrFolder={fileOrFolder} />
           </Box>
           <Box position="absolute" right="0.5rem">
             <Text>
@@ -157,6 +225,16 @@ const Home: FC = () => {
     { name: 'Music', directory: apiPath?.audioDir! },
     { name: 'Videos', directory: apiPath?.videoDir! }
   ]
+  
+  useEffect(() => {
+    const findVolumesIntervalRef = setInterval(() => {
+      invoke('get_volumes').then(volumes => {
+        setVolumesList(volumes as VolumesListProps)
+      })
+    }, 5000)
+
+    return () => clearInterval(findVolumesIntervalRef)
+  }, [])
 
   return (
     <>
@@ -189,21 +267,19 @@ const Home: FC = () => {
 
       <HStack>
         <VStack pt="0.5rem" px="0.5rem" height="100vh" position="fixed" top="0" left="0" backgroundColor="blackAlpha.400">
-          {baseDirectories.map((section, index) => {
-            return (
-              <Button
-                key={index}
-                isDisabled={isSearching}
-                width="7rem"
-                rounded="full"
-                onClick={async () => {
-                  setCurrentDirectory(await section.directory())
-                }}
-              >{section.name}</Button>
-            )
-          })}
+          {baseDirectories.map((section, index) => (
+            <Button
+              key={index}
+              isDisabled={isSearching}
+              width="7rem"
+              rounded="full"
+              onClick={async () => {
+                setCurrentDirectory(await section.directory())
+              }}
+            >{section.name}</Button>
+          ))}
 
-          <Button width="7rem" variant="outline" onClick={() => {
+          <Button isDisabled={isSearching} width="7rem" variant="outline" onClick={() => {
             invoke('get_volumes').then(volumes => {
               setVolumesList(volumes as VolumesListProps)
             })
@@ -216,33 +292,37 @@ const Home: FC = () => {
 
           {volumesList.map((volume, index) => (
             <VStack key={index}>
-              <Tooltip label={`${(volume.is_removable ? 'Removable': (volume.kind === 'SSD' ? 'SSD' : 'HDD'))} ${volume.mountpoint}`} placement="top">
-                <Button variant="outline" rounded="full" onClick={() => {
+              <Tooltip label={`${(volume.is_removable ? 'Removable': (volume.kind === 'SSD' ? 'SSD' : 'HDD'))} ${volume.mountpoint}`} placement="top" shouldWrapChildren>
+                <Button isDisabled={isSearching} variant="outline" rounded="full" onClick={() => {
                   setCurrentDirectory(volume.mountpoint)
                 }}>
-                  <HardDriveIcon />
+                  {volume.is_removable ? (
+                    <UsbIcon />
+                  ) : (
+                    <HardDriveIcon />
+                  )}
                 </Button>
               </Tooltip>
-              <Progress value={volume.used_gb / volume.total_gb * 100} width="5rem" />
+              <Progress value={volume.used_gb / volume.total_gb * 100} width="5rem" colorScheme={isSearching ? 'blackAlpha' : 'cyan'} />
             </VStack>
           ))}
         </VStack>
 
         <VStack alignItems="start" position="relative" left="9rem">
           <HStack mt="1rem">
-            <Button isDisabled={!isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
+            <Button isDisabled={isSearching || !isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
               if (isCurrentDirectoryUndoPossible) {
                 undoCurrentDirectory()
                 setReadDirArray([])
               }
 
-            }}><ArrowLeft /></Button>
-            <Button isDisabled={!isCurrentDirectoryRedoPossible} rounded="full" onClick={() => {
+            }}><ArrowLeftIcon /></Button>
+            <Button isDisabled={isSearching || !isCurrentDirectoryRedoPossible} rounded="full" onClick={() => {
               if (isCurrentDirectoryRedoPossible) {
                 redoCurrentDirectory()
                 setReadDirArray([])
               }
-            }}><ArrowRight /></Button>
+            }}><ArrowRightIcon /></Button>
           </HStack>
 
           <Alert status="success" rounded="xl">

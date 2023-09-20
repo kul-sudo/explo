@@ -6,7 +6,7 @@ import { Inter } from 'next/font/google'
 
 const font = Inter({ subsets: ['latin'] })
 
-const styles = {
+const styles: ThemeOverride['styles'] = {
   global: (props: GlobalStyleProps) => ({
     body: {
       bg: mode('#d1d1d1', '#202023')(props)
@@ -14,13 +14,13 @@ const styles = {
   })
 }
 
-const fonts = {
+const fonts: ThemeOverride['fonts'] = {
   body: font.style.fontFamily
 }
 
-const config = {
+const config: ThemeOverride['config'] = {
   initialColorMode: 'dark',
   useSystemColorMode: false
 }
 
-export default extendTheme({ styles, fonts, config } as ThemeOverride)
+export default extendTheme({ styles, fonts, config })

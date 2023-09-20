@@ -76,6 +76,10 @@ fn remove_extension(full_filename: &str) -> String {
     return Path::new(full_filename).file_stem().unwrap().to_string_lossy().to_string();
 }
 
+fn get_extension(full_filename: &str) -> Option<&str> {
+    Path::new(full_filename).extension().and_then(|c|  c.to_str())
+}
+
 fn is_not_hidden(entry: &DirEntry, include_hidden: &str) -> bool {
     if include_hidden.to_string() == "true" {
         return true
@@ -95,10 +99,14 @@ async fn open_file_in_default_application(file_name: String) {
 #[tauri::command(async)]
 async fn read_directory(app_handle: AppHandle, directory: String) {
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        let extension = get_extension(&file_name).unwrap_or_default();
+
         let emit_data: HashMap<&str, Value> = HashMap::from([
             ("isFolder", Value::Bool(if entry.path().is_dir() { true } else { false })),
             ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
-            ("path", Value::String(entry.path().to_string_lossy().to_string()))
+            ("path", Value::String(entry.path().to_string_lossy().to_string())),
+            ("extension", Value::String(extension.to_string()))
         ]);
 
         let _ = app_handle.emit_all("add", emit_data);
@@ -117,11 +125,15 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
                     STOP_FINDING.store(false, Ordering::Relaxed);
                     return
                 }
+
+                let file_name = entry.file_name().to_string_lossy().to_string();
+                let extension = get_extension(&file_name).unwrap_or_default();
                 
                 let emit_data: HashMap<&str, Value> = HashMap::from([
                     ("isFolder", Value::Bool(if entry.path().is_dir() { true } else { false })),
                     ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
-                    ("path", Value::String(entry.path().to_string_lossy().to_string()))
+                    ("path", Value::String(entry.path().to_string_lossy().to_string())),
+                    ("extension", Value::String(extension.to_string()))
                 ]);
 
                 let _ = app_handle.emit_all("add", emit_data);
