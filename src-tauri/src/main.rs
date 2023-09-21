@@ -120,7 +120,7 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
             .follow_links(true)
             .into_iter()
             .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-            .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).contains(target_file) && is_not_hidden(entry, include_hidden)) {
+            .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).to_lowercase().contains(target_file) && is_not_hidden(entry, include_hidden)) {
                 if STOP_FINDING.load(Ordering::Relaxed) {
                     STOP_FINDING.store(false, Ordering::Relaxed);
                     return

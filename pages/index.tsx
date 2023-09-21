@@ -8,6 +8,7 @@ import {
   Button,
   Checkbox,
   HStack,
+  IconButton,
   Input,
   Progress,
   Spinner,
@@ -20,7 +21,7 @@ import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
-import { ArrowLeftIcon, ArrowRightIcon, FileIcon, FolderIcon, HardDriveIcon } from 'lucide-react'
+import { ArrowLeftIcon, ArrowRightIcon, FileIcon, FolderIcon, HardDriveIcon, RotateCw } from 'lucide-react'
 import {
   AiFillUsb as UsbIcon,
   AiFillHtml5 as HTMLIcon
@@ -30,7 +31,8 @@ import {
   BiLogoJavascript as JavaScriptIcon,
   BiLogoPython as PythonIcon,
   BiSolidFileJson as JsonIcon,
-  BiSolidFileTxt as TXTIcon
+  BiSolidFileTxt as TXTIcon,
+  BiSolidFileCss as CSSIcon
 } from 'react-icons/bi'
 import {
   BsFileEarmarkZipFill as ZipIcon,
@@ -40,10 +42,12 @@ import {
 import {
   SiLua as LuaIcon
 } from 'react-icons/si'
+import {
+  FaRust as RustIcon
+} from 'react-icons/fa'
 import { FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
-
-const MAX_FILE_NAME_LENGTH = 18
+import { isEqual } from 'lodash'
 
 const directoryInputOnKeyDown = async (
   event: KeyboardEvent<HTMLInputElement>,
@@ -105,9 +109,13 @@ const iconsForExtensions: Record<string, ReactNode> = {
   'png': <ImageIcon size={25} />,
   'jpg': <ImageIcon size={25} />,
   'jpeg': <ImageIcon size={25} />,
+  'svg': <ImageIcon size={25} />,
+  'ico': <ImageIcon size={25} />,
   'txt': <TXTIcon size={25} />,
   'pdf': <PDFIcon size={25} />,
-  'lua': <LuaIcon size={25} />
+  'lua': <LuaIcon size={25} />,
+  'rs': <RustIcon size={25} />,
+  'css': <CSSIcon size={25} />
 }
 
 const FileOrFolderItem: FC<{fileOrFolder: AddEventProps}> = ({ fileOrFolder }) => {
@@ -205,8 +213,8 @@ const Home: FC = () => {
             <FileOrFolderItem fileOrFolder={fileOrFolder} />
           </Box>
           <Box position="absolute" right="0.5rem">
-            <Text>
-              {fileOrFolder.name.slice(0, MAX_FILE_NAME_LENGTH).concat('...')}
+            <Text width="10rem" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" textAlign="right" mr="0.3rem">
+              {fileOrFolder.name}
             </Text>
           </Box>
         </Button>
@@ -229,12 +237,14 @@ const Home: FC = () => {
   useEffect(() => {
     const findVolumesIntervalRef = setInterval(() => {
       invoke('get_volumes').then(volumes => {
-        setVolumesList(volumes as VolumesListProps)
+        if (!isEqual(volumes, volumesList)) {
+          setVolumesList(volumes as VolumesListProps)
+        }
       })
     }, 5000)
 
     return () => clearInterval(findVolumesIntervalRef)
-  }, [])
+  }, [volumesList])
 
   return (
     <>
@@ -310,19 +320,29 @@ const Home: FC = () => {
 
         <VStack alignItems="start" position="relative" left="9rem">
           <HStack mt="1rem">
-            <Button isDisabled={isSearching || !isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
+            <IconButton aria-label="Go back" icon={<ArrowLeftIcon />} isDisabled={isSearching || !isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
               if (isCurrentDirectoryUndoPossible) {
                 undoCurrentDirectory()
                 setReadDirArray([])
               }
-
-            }}><ArrowLeftIcon /></Button>
-            <Button isDisabled={isSearching || !isCurrentDirectoryRedoPossible} rounded="full" onClick={() => {
+            }} />
+            <IconButton aria-label="Go forward" icon={<ArrowRightIcon />} isDisabled={isSearching || !isCurrentDirectoryRedoPossible} rounded="full" onClick={() => {
               if (isCurrentDirectoryRedoPossible) {
                 redoCurrentDirectory()
                 setReadDirArray([])
               }
-            }}><ArrowRightIcon /></Button>
+            }} />
+            <IconButton aria-label="Refresh" icon={<RotateCw />} isDisabled={isSearching} rounded="full" variant="outline" onClick={() => {
+              setIsLoading(true)
+              setReadDirArray([])
+              fileOrFolderKey = 0
+
+              if (currentDirectory !== '') {
+                invoke('read_directory', { directory: currentDirectory }).then(() => {
+                  setIsLoading(false)
+                })
+              }
+            }} />
           </HStack>
 
           <Alert status="success" rounded="xl">
@@ -333,6 +353,8 @@ const Home: FC = () => {
           {isLoading && readDirArray.length !== 0 && (
             <Spinner />
           )}
+
+          <Text>{readDirArray.length} file{readDirArray.length !== 1 && 's'} found</Text>
 
           <FixedSizeList
             key={fileOrFolderKey}
