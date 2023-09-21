@@ -363,6 +363,7 @@ const Home: FC = () => {
             itemSize={40}
             width={300}
             height={900}
+            style={{ overflowY: 'scroll' }}
           >
             {Row}
           </FixedSizeList>
