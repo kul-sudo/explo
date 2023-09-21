@@ -38,4 +38,11 @@ type ActionObject = {
   data?: string
 }
 
-export type { FolderReferencesProps, AddEventProps, RowProps, VolumesListProps, UndoRedoObject, ActionObject }
+export type {
+  FolderReferencesProps,
+  AddEventProps,
+  RowProps,
+  VolumesListProps,
+  UndoRedoObject,
+  ActionObject
+}
