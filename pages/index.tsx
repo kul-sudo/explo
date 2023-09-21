@@ -1,5 +1,6 @@
-import type { FC, KeyboardEvent, ReactNode, RefObject } from 'react'
+import type { ComponentType, FC, KeyboardEvent, ReactNode, RefObject } from 'react'
 import type { AddEventProps, FolderReferencesProps, RowProps, VolumesListProps } from '@/types/types'
+import type { FixedSizeListProps } from 'react-window'
 import {
   Alert,
   AlertDescription,
@@ -45,9 +46,11 @@ import {
 import {
   FaRust as RustIcon
 } from 'react-icons/fa'
-import { FixedSizeList } from 'react-window'
+import { FixedSizeList as _FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 import { isEqual } from 'lodash'
+
+const FixedSizeList = _FixedSizeList as ComponentType<FixedSizeListProps>
 
 const directoryInputOnKeyDown = async (
   event: KeyboardEvent<HTMLInputElement>,
@@ -71,16 +74,23 @@ const searchButtonOnClick = (
   searchInDirectory: string,
   isIncludeHiddenFoldersChecked: boolean,
   setIsLoading: (newState: boolean) => void,
+  setIsSearching: (newState: boolean) => void,
   setReadDirArray: (newState: AddEventProps[]) => void,
-  setIsSearching: (newState: boolean) => void
+  setLastTimeFound: (newState: number) => void,
+  setLastTimeLaunched: (newState: number) => void
 ) => {
   setIsLoading(true)
-  setReadDirArray([])
   setIsSearching(true)
+  setReadDirArray([])
+
+  const lastTimeLaunched = Date.now()
 
   invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory.toLowerCase()},${isIncludeHiddenFoldersChecked}` }).then(() => {
     setIsLoading(false)
     setIsSearching(false)
+
+    setLastTimeLaunched(lastTimeLaunched)
+    setLastTimeFound(Date.now())
   })
 }
 
@@ -143,6 +153,9 @@ const Home: FC = () => {
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
   const [isSearching, setIsSearching] = useState<boolean>(false)
 
+  const [lastTimeFound, setLastTimeFound] = useState<number>(0)
+  const [lastTimeLaunched, setLastTimeLaunched] = useState<number>(0)
+
   const setupAppWindow = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
   }
@@ -176,11 +189,14 @@ const Home: FC = () => {
     setReadDirArray([])
     fileOrFolderKey = 0
 
-    if (currentDirectory !== '') {
-      invoke('read_directory', { directory: currentDirectory }).then(() => {
-        setIsLoading(false)
-      })
-    }
+    const lastTimeLaunched = Date.now()
+
+    invoke('read_directory', { directory: currentDirectory }).then(() => {
+      setIsLoading(false)
+
+      setLastTimeLaunched(lastTimeLaunched)
+      setLastTimeFound(Date.now())
+    })
   }, [currentDirectory])
 
   const sortedReadDirArray = useMemo(() => {
@@ -263,8 +279,10 @@ const Home: FC = () => {
             searchInDirectory,
             isIncludeHiddenFoldersChecked,
             setIsLoading,
+            setIsSearching,
             setReadDirArray,
-            setIsSearching
+            setLastTimeFound,
+            setLastTimeLaunched
           )
         }}>Search</Button>
 
@@ -337,11 +355,9 @@ const Home: FC = () => {
               setReadDirArray([])
               fileOrFolderKey = 0
 
-              if (currentDirectory !== '') {
-                invoke('read_directory', { directory: currentDirectory }).then(() => {
-                  setIsLoading(false)
-                })
-              }
+              invoke('read_directory', { directory: currentDirectory }).then(() => {
+                setIsLoading(false)
+              })
             }} />
           </HStack>
 
@@ -354,7 +370,14 @@ const Home: FC = () => {
             <Spinner />
           )}
 
-          <Text>{readDirArray.length} file{readDirArray.length !== 1 && 's'} found</Text>
+          <Text>
+            <Text display="inline" fontWeight="bold">{readDirArray.length}</Text> 
+            <Text display="inline"> found in</Text>
+            <Text display="inline" fontWeight="bold"> {isSearching ? '*searching*' : ((lastTimeFound - lastTimeLaunched) / 1000)}</Text> 
+            {!isSearching && (
+              <Text display="inline"> seconds</Text>
+            )}
+          </Text>
 
           <FixedSizeList
             key={fileOrFolderKey}

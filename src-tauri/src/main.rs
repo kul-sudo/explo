@@ -98,6 +98,9 @@ async fn open_file_in_default_application(file_name: String) {
 
 #[tauri::command(async)]
 async fn read_directory(app_handle: AppHandle, directory: String) {
+    if directory.is_empty() {
+        return
+    };
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
         let file_name = entry.file_name().to_string_lossy().to_string();
         let extension = get_extension(&file_name).unwrap_or_default();
