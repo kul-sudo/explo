@@ -15,9 +15,10 @@ import {
   Spinner,
   Text,
   Tooltip,
-  VStack
+  VStack,
+  useToast
 } from '@chakra-ui/react'
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
@@ -89,7 +90,7 @@ const searchButtonOnClick = (
 
   const lastTimeLaunched = Date.now()
 
-  invoke('find_files_and_folders', { command: `${currentDirectory},${searchInDirectory.toLowerCase()},${isIncludeHiddenFoldersChecked}` }).then(() => {
+  invoke('find_files_and_folders', { current_directory: currentDirectory, search_in_directory: searchInDirectory.toLowerCase(), include_hidden_folders: isIncludeHiddenFoldersChecked }).then(() => {
     setIsLoading(false)
     setIsSearching(false)
 
@@ -162,8 +163,9 @@ const Home: FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
   const [searchInDirectory, setSearchInDirectory] = useState<string>('')
-  const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
   const [isSearching, setIsSearching] = useState<boolean>(false)
+  const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
+  const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useState<boolean>(false)
 
   const [lastTime, setLastTime] = useState<LastTimeProps>({
     launched: 0,
@@ -266,6 +268,8 @@ const Home: FC = () => {
     return () => clearInterval(findVolumesIntervalRef)
   }, [volumesList])
 
+  const toast = useToast()
+  
   return (
     <>
       <VStack position="fixed" top="2" right="2">
@@ -275,18 +279,31 @@ const Home: FC = () => {
 
         <Input isDisabled={isSearching || currentDirectory.length === 0} placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
 
-        <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
+        <VStack alignItems="start">
+          <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
+          <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={true} onChange={event => setIsSortFromFoldersToFilesChecked(event.target.checked)}>Sort from folders to files</Checkbox>
+        </VStack>
 
         <Button isDisabled={isSearching || currentDirectory.length === 0} onClick={() => {
-          searchButtonOnClick(
-            currentDirectory,
-            searchInDirectory,
-            isIncludeHiddenFoldersChecked,
-            setIsLoading,
-            setIsSearching,
-            setReadDirArray,
-            setLastTime
-          )
+          if (searchInDirectory.length > 0) {
+            searchButtonOnClick(
+              currentDirectory,
+              searchInDirectory,
+              isIncludeHiddenFoldersChecked,
+              setIsLoading,
+              setIsSearching,
+              setReadDirArray,
+              setLastTime
+            )
+          } else {
+            toast({
+              title: 'Error',
+              description: 'Nothing to search for has been chosen.',
+              status: 'error',
+              duration: 9000,
+              isClosable: true
+            })
+          }
         }}>Search</Button>
 
         {isSearching && (
@@ -323,7 +340,7 @@ const Home: FC = () => {
 
           {volumesList.map((volume, index) => (
             <VStack key={index}>
-              <Tooltip label={`${(volume.is_removable ? 'Removable': (volume.kind === 'SSD' ? 'SSD' : 'HDD'))} ${volume.mountpoint}`} placement="top" shouldWrapChildren>
+              <Tooltip label={`${(volume.is_removable ? 'Removable': volume.kind)} ${volume.mountpoint}`} placement="top" shouldWrapChildren>
                 <Button isDisabled={isSearching} variant="outline" rounded="full" onClick={() => {
                   setCurrentDirectory(volume.mountpoint)
                 }}>
@@ -369,7 +386,7 @@ const Home: FC = () => {
             <AlertDescription fontWeight="medium">{currentDirectory.length === 0 ? "No directory chosen": currentDirectory}</AlertDescription>
           </Alert>
 
-          {isLoading && readDirArray.length !== 0 && (
+          {isLoading && readDirArray.length > 0 && (
             <Spinner />
           )}
 
@@ -387,7 +404,7 @@ const Home: FC = () => {
           <FixedSizeList
             key={fileOrFolderKey}
             itemCount={readDirArray.length}
-            itemData={readDirArray.sort((a, b) => {
+            itemData={isSortFromFoldersToFilesChecked ? readDirArray.slice().sort((a, b) => {
               if (a.isFolder && !b.isFolder) {
                 return -1
               } else if (b.isFolder && !a.isFolder) {
@@ -395,7 +412,7 @@ const Home: FC = () => {
               } else {
                 return 0
               }
-            })}
+            }) : readDirArray}
             itemSize={40}
             width={300}
             height={900}

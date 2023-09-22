@@ -1,7 +1,7 @@
 import type { ActionObject, UndoRedoObject } from '@/types/types'
 import { Reducer, useReducer } from 'react'
 
-enum ActionTypes {
+const enum ActionTypes {
   SET_STATE,
   UNDO,
   REDO

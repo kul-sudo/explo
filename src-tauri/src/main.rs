@@ -3,11 +3,12 @@
 
 use std::{fs::read_dir, path::{Path, PathBuf}, collections::HashMap, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 use tauri::{AppHandle, Manager};
-use walkdir::{WalkDir, DirEntry};
+use walkdir::WalkDir;
 use sysinfo::{System, SystemExt, Disk, DiskExt};
 use serde::Serialize;
 use serde_json::Value;
 use lazy_static::lazy_static;
+use globmatch::is_hidden_path;
 
 lazy_static! {
    static ref STOP_FINDING: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
@@ -50,8 +51,9 @@ impl Volume {
 }
 
 #[tauri::command]
-fn get_volumes() -> Result<Vec<Volume>, ()> {
+fn get_volumes() -> Vec<Volume> {
     let mut sys = System::new_all();
+
     sys.refresh_all();
 
     let volumes = sys
@@ -64,7 +66,7 @@ fn get_volumes() -> Result<Vec<Volume>, ()> {
         })
         .collect();
 
-    Ok(volumes)
+    return volumes
 }
 
 #[tauri::command(async)]
@@ -78,16 +80,6 @@ fn remove_extension(full_filename: &str) -> String {
 
 fn get_extension(full_filename: &str) -> Option<&str> {
     Path::new(full_filename).extension().and_then(|c| c.to_str())
-}
-
-fn is_not_hidden(entry: &DirEntry, include_hidden: &str) -> bool {
-    if include_hidden.to_string() == "true" {
-        return true
-    }
-
-    return entry.file_name()
-         .to_str()
-         .map_or(false, |s| !s.starts_with("."))
 }
 
 #[tauri::command(async)]
@@ -116,32 +108,30 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
     }
 }
 
-#[tauri::command(async)]
-async fn find_files_and_folders(app_handle: AppHandle, command: String) {
-    if let [directory, target_file, include_hidden] = command.split(',').collect::<Vec<_>>().as_slice() {
-        for entry in WalkDir::new(directory)
-            .follow_links(true)
-            .into_iter()
-            .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-            .filter(|entry| *directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).to_lowercase().contains(target_file) && is_not_hidden(entry, include_hidden)) {
-                if STOP_FINDING.load(Ordering::Relaxed) {
-                    STOP_FINDING.store(false, Ordering::Relaxed);
-                    return
-                }
-
-                let file_name = entry.file_name().to_string_lossy().to_string();
-                let extension = get_extension(&file_name).unwrap_or_default();
-                
-                let emit_data: HashMap<&str, Value> = HashMap::from([
-                    ("isFolder", Value::Bool(entry.path().is_dir())),
-                    ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
-                    ("path", Value::String(entry.path().to_string_lossy().to_string())),
-                    ("extension", Value::String(extension.to_string()))
-                ]);
-
-                let _ = app_handle.emit_all("add", emit_data);
+#[tauri::command(async, rename_all = "snake_case")]
+async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool) {
+    for entry in WalkDir::new(&current_directory)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
+        .filter(|entry| current_directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).to_lowercase().contains(&search_in_directory) && (if include_hidden_folders { true } else { !is_hidden_path(entry.path()) })) {
+            if STOP_FINDING.load(Ordering::Relaxed) {
+                STOP_FINDING.store(false, Ordering::Relaxed);
+                return;
             }
-    }
+
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            let extension = get_extension(&file_name).unwrap_or_default();
+
+            let emit_data: HashMap<&str, Value> = HashMap::from([
+                ("isFolder", Value::Bool(entry.path().is_dir())),
+                ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
+                ("path", Value::String(entry.path().to_string_lossy().to_string())),
+                ("extension", Value::String(extension.to_string()))
+            ]);
+
+            let _ = app_handle.emit_all("add", emit_data);
+        }
 }
 
 #[tokio::main]
