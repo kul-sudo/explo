@@ -225,7 +225,7 @@ const Home: FC = () => {
     })
   }, [])
 
-  const Row: ComponentType<RowProps> = ({ data, index, style }) => {
+  const Row = ({ data, index, style }: RowProps) => {
     const fileOrFolder = data[index]
 
     return (
