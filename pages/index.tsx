@@ -1,5 +1,5 @@
 import type { ComponentType, FC, KeyboardEvent, ReactNode, RefObject } from 'react'
-import type { AddEventProps, FolderReferencesProps, RowProps, VolumesListProps } from '@/types/types'
+import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, VolumesListProps } from '@/types/types'
 import type { FixedSizeListProps } from 'react-window'
 import {
   Alert,
@@ -33,19 +33,24 @@ import {
   BiLogoPython as PythonIcon,
   BiSolidFileJson as JsonIcon,
   BiSolidFileTxt as TXTIcon,
-  BiSolidFileCss as CSSIcon
+  BiLogoCss3 as CSSIcon
 } from 'react-icons/bi'
 import {
   BsFileEarmarkZipFill as ZipIcon,
   BsImageFill as ImageIcon,
-  BsFillFileEarmarkPdfFill as PDFIcon
+  BsFillFileEarmarkPdfFill as PDFIcon,
+  BsFillMarkdownFill as MDIcon
 } from 'react-icons/bs'
 import {
-  SiLua as LuaIcon
+  SiLua as LuaIcon,
+  SiBun as BunIcon
 } from 'react-icons/si'
 import {
   FaRust as RustIcon
 } from 'react-icons/fa'
+import {
+  MdVideoLibrary as VideoIcon
+} from 'react-icons/md'
 import { FixedSizeList as _FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 import { isEqual } from 'lodash'
@@ -76,8 +81,7 @@ const searchButtonOnClick = (
   setIsLoading: (newState: boolean) => void,
   setIsSearching: (newState: boolean) => void,
   setReadDirArray: (newState: AddEventProps[]) => void,
-  setLastTimeFound: (newState: number) => void,
-  setLastTimeLaunched: (newState: number) => void
+  setLastTime: (newState: LastTimeProps) => void,
 ) => {
   setIsLoading(true)
   setIsSearching(true)
@@ -89,8 +93,10 @@ const searchButtonOnClick = (
     setIsLoading(false)
     setIsSearching(false)
 
-    setLastTimeLaunched(lastTimeLaunched)
-    setLastTimeFound(Date.now())
+    setLastTime({
+      launched: lastTimeLaunched,
+      found: Date.now()
+    })
   })
 }
 
@@ -108,24 +114,30 @@ const fileOrFolderDoubleClick = (
 let fileOrFolderKey = 0
 
 const iconsForExtensions: Record<string, ReactNode> = {
-  'ts': <TypeScriptIcon size={25} />,
-  'tsx': <TypeScriptIcon size={25} />,
-  'js': <JavaScriptIcon size={25} />,
-  'jsx': <JavaScriptIcon size={25} />,
-  'py': <PythonIcon size={25} />,
-  'json': <JsonIcon size={25} />,
-  'zip': <ZipIcon size={25} />,
-  'html': <HTMLIcon size={25} />,
-  'png': <ImageIcon size={25} />,
-  'jpg': <ImageIcon size={25} />,
-  'jpeg': <ImageIcon size={25} />,
-  'svg': <ImageIcon size={25} />,
-  'ico': <ImageIcon size={25} />,
-  'txt': <TXTIcon size={25} />,
-  'pdf': <PDFIcon size={25} />,
-  'lua': <LuaIcon size={25} />,
-  'rs': <RustIcon size={25} />,
-  'css': <CSSIcon size={25} />
+  ts: <TypeScriptIcon size={25} />,
+  tsx: <TypeScriptIcon size={25} />,
+  js: <JavaScriptIcon size={25} />,
+  jsx: <JavaScriptIcon size={25} />,
+  py: <PythonIcon size={25} />,
+  json: <JsonIcon size={25} />,
+  zip: <ZipIcon size={25} />,
+  html: <HTMLIcon size={25} />,
+  png: <ImageIcon size={25} />,
+  jpg: <ImageIcon size={25} />,
+  jpeg: <ImageIcon size={25} />,
+  svg: <ImageIcon size={25} />,
+  ico: <ImageIcon size={25} />,
+  txt: <TXTIcon size={25} />,
+  pdf: <PDFIcon size={25} />,
+  lua: <LuaIcon size={25} />,
+  rs: <RustIcon size={25} />,
+  css: <CSSIcon size={25} />,
+  md: <MDIcon size={25} />,
+  mp4: <VideoIcon size={25} />,
+  avi: <VideoIcon size={25} />,
+  mkv: <VideoIcon size={25} />,
+  webm: <VideoIcon size={25} />,
+  lockb: <BunIcon size={25} />
 }
 
 const FileOrFolderItem: FC<{fileOrFolder: AddEventProps}> = ({ fileOrFolder }) => {
@@ -153,8 +165,10 @@ const Home: FC = () => {
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
   const [isSearching, setIsSearching] = useState<boolean>(false)
 
-  const [lastTimeFound, setLastTimeFound] = useState<number>(0)
-  const [lastTimeLaunched, setLastTimeLaunched] = useState<number>(0)
+  const [lastTime, setLastTime] = useState<LastTimeProps>({
+    launched: 0,
+    found: 0
+  })
 
   const setupAppWindow = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
@@ -194,22 +208,12 @@ const Home: FC = () => {
     invoke('read_directory', { directory: currentDirectory }).then(() => {
       setIsLoading(false)
 
-      setLastTimeLaunched(lastTimeLaunched)
-      setLastTimeFound(Date.now())
+      setLastTime({
+        launched: lastTimeLaunched,
+        found: Date.now()
+      })
     })
   }, [currentDirectory])
-
-  const sortedReadDirArray = useMemo(() => {
-    return readDirArray.slice().sort((a, b) => {
-      if (a.isFolder && !b.isFolder) {
-        return -1
-      } else if (b.isFolder && !a.isFolder) {
-        return 1
-      } else {
-        return 0
-      }
-    })
-  }, [readDirArray])
 
   const [volumesList, setVolumesList] = useState<VolumesListProps>([])
 
@@ -265,15 +269,15 @@ const Home: FC = () => {
   return (
     <>
       <VStack position="fixed" top="2" right="2">
-        <Input ref={directoryRef} isDisabled={isSearching} placeholder="Directory" width="10rem" variant="filled" onKeyDown={event => {
+        <Input ref={directoryRef} isDisabled={isSearching || currentDirectory.length === 0} placeholder="Directory" width="10rem" variant="filled" onKeyDown={event => {
           directoryInputOnKeyDown(event, directoryRef, currentDirectory, setCurrentDirectory)
         }} />
 
-        <Input isDisabled={isSearching} placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
+        <Input isDisabled={isSearching || currentDirectory.length === 0} placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
 
-        <Checkbox isDisabled={isSearching} defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
+        <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
 
-        <Button isDisabled={isSearching} onClick={() => {
+        <Button isDisabled={isSearching || currentDirectory.length === 0} onClick={() => {
           searchButtonOnClick(
             currentDirectory,
             searchInDirectory,
@@ -281,8 +285,7 @@ const Home: FC = () => {
             setIsLoading,
             setIsSearching,
             setReadDirArray,
-            setLastTimeFound,
-            setLastTimeLaunched
+            setLastTime
           )
         }}>Search</Button>
 
@@ -350,7 +353,7 @@ const Home: FC = () => {
                 setReadDirArray([])
               }
             }} />
-            <IconButton aria-label="Refresh" icon={<RotateCw />} isDisabled={isSearching} rounded="full" variant="outline" onClick={() => {
+            <IconButton aria-label="Refresh" icon={<RotateCw />} isDisabled={isSearching || currentDirectory.length === 0} rounded="full" variant="outline" onClick={() => {
               setIsLoading(true)
               setReadDirArray([])
               fileOrFolderKey = 0
@@ -361,28 +364,38 @@ const Home: FC = () => {
             }} />
           </HStack>
 
-          <Alert status="success" rounded="xl">
+          <Alert status={currentDirectory.length === 0 ? 'info' : 'success'} rounded="xl">
             <AlertIcon />
-            <AlertDescription fontWeight="medium">{currentDirectory}</AlertDescription>
+            <AlertDescription fontWeight="medium">{currentDirectory.length === 0 ? "No directory chosen": currentDirectory}</AlertDescription>
           </Alert>
 
           {isLoading && readDirArray.length !== 0 && (
             <Spinner />
           )}
 
-          <Text>
-            <Text display="inline" fontWeight="bold">{readDirArray.length}</Text> 
-            <Text display="inline"> found in</Text>
-            <Text display="inline" fontWeight="bold"> {isSearching ? '*searching*' : ((lastTimeFound - lastTimeLaunched) / 1000)}</Text> 
-            {!isSearching && (
-              <Text display="inline"> seconds</Text>
-            )}
-          </Text>
+          {currentDirectory.length > 0 && (
+            <Text>
+              <Text display="inline" fontWeight="bold">{readDirArray.length}</Text> 
+              <Text display="inline"> found in</Text>
+              <Text display="inline" fontWeight="bold"> {isSearching ? '*searching*' : ((lastTime.found - lastTime.launched) / 1000)}</Text> 
+              {!isSearching && (
+                <Text display="inline"> seconds</Text>
+              )}
+            </Text>
+          )}
 
           <FixedSizeList
             key={fileOrFolderKey}
-            itemCount={sortedReadDirArray.length}
-            itemData={sortedReadDirArray}
+            itemCount={readDirArray.length}
+            itemData={readDirArray.sort((a, b) => {
+              if (a.isFolder && !b.isFolder) {
+                return -1
+              } else if (b.isFolder && !a.isFolder) {
+                return 1
+              } else {
+                return 0
+              }
+            })}
             itemSize={40}
             width={300}
             height={900}

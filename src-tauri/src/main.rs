@@ -77,7 +77,7 @@ fn remove_extension(full_filename: &str) -> String {
 }
 
 fn get_extension(full_filename: &str) -> Option<&str> {
-    Path::new(full_filename).extension().and_then(|c|  c.to_str())
+    Path::new(full_filename).extension().and_then(|c| c.to_str())
 }
 
 fn is_not_hidden(entry: &DirEntry, include_hidden: &str) -> bool {
@@ -85,10 +85,9 @@ fn is_not_hidden(entry: &DirEntry, include_hidden: &str) -> bool {
         return true
     }
 
-    !entry
-        .path()
-        .components()
-        .any(|c| c.as_os_str().to_string_lossy().starts_with("."))
+    return entry.file_name()
+         .to_str()
+         .map_or(false, |s| !s.starts_with("."))
 }
 
 #[tauri::command(async)]
@@ -101,12 +100,13 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
     if directory.is_empty() {
         return
     };
+
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
         let file_name = entry.file_name().to_string_lossy().to_string();
         let extension = get_extension(&file_name).unwrap_or_default();
 
         let emit_data: HashMap<&str, Value> = HashMap::from([
-            ("isFolder", Value::Bool(if entry.path().is_dir() { true } else { false })),
+            ("isFolder", Value::Bool(entry.path().is_dir())),
             ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
             ("path", Value::String(entry.path().to_string_lossy().to_string())),
             ("extension", Value::String(extension.to_string()))
@@ -133,7 +133,7 @@ async fn find_files_and_folders(app_handle: AppHandle, command: String) {
                 let extension = get_extension(&file_name).unwrap_or_default();
                 
                 let emit_data: HashMap<&str, Value> = HashMap::from([
-                    ("isFolder", Value::Bool(if entry.path().is_dir() { true } else { false })),
+                    ("isFolder", Value::Bool(entry.path().is_dir())),
                     ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
                     ("path", Value::String(entry.path().to_string_lossy().to_string())),
                     ("extension", Value::String(extension.to_string()))

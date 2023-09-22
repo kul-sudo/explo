@@ -38,11 +38,17 @@ type ActionObject = {
   data?: string
 }
 
+type LastTimeProps = {
+  launched: number
+  found: number
+}
+
 export type {
   FolderReferencesProps,
   AddEventProps,
   RowProps,
   VolumesListProps,
   UndoRedoObject,
-  ActionObject
+  ActionObject,
+  LastTimeProps
 }
