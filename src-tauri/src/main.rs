@@ -171,7 +171,7 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
         .follow_links(true)
         .into_iter()
         .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-        .filter(|entry| current_directory != entry.path().to_string_lossy() && (include_hidden_folders || !is_hidden_path(entry.path())) && (if regex_wrapped.is_none() { remove_extension!(&entry.file_name()).contains(&search_in_directory) } else { is_suitable_regex_or_mask(&search_in_directory, &remove_extension!(&entry.file_name()), &searching_mode, regex_wrapped.as_ref().unwrap()) })) {
+        .filter(|entry| current_directory != entry.path().to_string_lossy() && (include_hidden_folders || !is_hidden_path(entry.path())) && (if regex_wrapped.is_none() { remove_extension!(&entry.file_name()).to_lowercase().contains(&search_in_directory) } else { is_suitable_regex_or_mask(&search_in_directory, &remove_extension!(&entry.file_name()), &searching_mode, regex_wrapped.as_ref().unwrap()) })) {
             if STOP_FINDING.load(Ordering::Relaxed) {
                 STOP_FINDING.store(false, Ordering::Relaxed);
                 return;
