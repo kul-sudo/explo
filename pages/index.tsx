@@ -1,5 +1,6 @@
-import type { FC, KeyboardEvent, ReactNode, RefObject } from 'react'
+import type { ComponentType, FC, KeyboardEvent, ReactNode, RefObject } from 'react'
 import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, SearchingModeValue, VolumesListProps } from '@/types/types'
+import type { FixedSizeListProps } from 'react-window'
 import {
   Alert,
   AlertDescription,
@@ -53,9 +54,11 @@ import {
 import {
   MdVideoLibrary as VideoIcon
 } from 'react-icons/md'
-import { FixedSizeList } from 'react-window'
+import { FixedSizeList as _FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 import { isEqual } from 'lodash'
+
+const FixedSizeList = _FixedSizeList as ComponentType<FixedSizeListProps>
 
 const directoryInputOnKeyDown = async (
   event: KeyboardEvent<HTMLInputElement>,
