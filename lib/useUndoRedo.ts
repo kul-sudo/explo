@@ -1,4 +1,4 @@
-import type { ActionObject, UndoRedoObject } from '@/types/types'
+import type { UndoRedoObjectProps, ActionObjectProps } from '@/types/types'
 import { Reducer, useReducer } from 'react'
 
 const enum ActionTypes {
@@ -7,7 +7,7 @@ const enum ActionTypes {
   REDO
 }
 
-const reducerWithUndoRedo: Reducer<UndoRedoObject, ActionObject> = (state, action) => {
+const reducerWithUndoRedo: Reducer<UndoRedoObjectProps, ActionObjectProps> = (state, action) => {
   switch (action.type) {
     case ActionTypes.SET_STATE:
       return {
@@ -36,7 +36,7 @@ const reducerWithUndoRedo: Reducer<UndoRedoObject, ActionObject> = (state, actio
 }
 
 const useUndoRedo = (initialState: string) => {
-  const [state, dispatch] = useReducer<Reducer<UndoRedoObject, ActionObject>>(reducerWithUndoRedo, {
+  const [state, dispatch] = useReducer<Reducer<UndoRedoObjectProps, ActionObjectProps>>(reducerWithUndoRedo, {
     past: [],
     present: initialState,
     future: []

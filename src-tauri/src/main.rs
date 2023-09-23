@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{fs::read_dir, path::{Path, PathBuf}, collections::HashMap, sync::{Arc, atomic::{AtomicBool, Ordering}}};
+use regex::Regex;
 use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
 use sysinfo::{System, SystemExt, Disk, DiskExt};
@@ -14,8 +15,10 @@ lazy_static! {
    static ref STOP_FINDING: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 }
 
-fn bytes_to_gb(bytes: u64) -> u16 {
-    return (bytes / (1e+9 as u64)) as u16
+macro_rules! bytes_to_gb {
+    ($bytes:expr) => {
+        ($bytes / (1e+9 as u64)) as u16
+    };
 }
 
 #[derive(Serialize)]
@@ -31,9 +34,9 @@ pub struct Volume {
 impl Volume {
     fn from(disk: &Disk) -> Self {
         let used_bytes = disk.total_space() - disk.available_space();
-        let available_gb = bytes_to_gb(disk.available_space());
-        let used_gb = bytes_to_gb(used_bytes);
-        let total_gb = bytes_to_gb(disk.total_space());
+        let available_gb = bytes_to_gb!(disk.available_space());
+        let used_gb = bytes_to_gb!(used_bytes);
+        let total_gb = bytes_to_gb!(disk.total_space());
 
         let mountpoint = disk.mount_point().to_path_buf();
         let kind = format!("{:?}", disk.kind());
@@ -74,12 +77,16 @@ async fn stop_finding() {
     STOP_FINDING.store(true, Ordering::Relaxed)
 }
 
-fn remove_extension(full_filename: &str) -> String {
-    return Path::new(full_filename).file_stem().unwrap().to_string_lossy().to_string();
+macro_rules! remove_extension {
+    ($full_filename:expr) => {
+        Path::new($full_filename).file_stem().unwrap().to_string_lossy().to_string()
+    };
 }
 
-fn get_extension(full_filename: &str) -> Option<&str> {
-    Path::new(full_filename).extension().and_then(|c| c.to_str())
+macro_rules! get_extension {
+    ($full_filename:expr) => {
+        Path::new($full_filename).extension().and_then(|c| c.to_str())
+    };
 }
 
 #[tauri::command(async)]
@@ -95,7 +102,7 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
 
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
         let file_name = entry.file_name().to_string_lossy().to_string();
-        let extension = get_extension(&file_name).unwrap_or_default();
+        let extension = get_extension!(&file_name).unwrap_or_default();
 
         let emit_data: HashMap<&str, Value> = HashMap::from([
             ("isFolder", Value::Bool(entry.path().is_dir())),
@@ -108,20 +115,70 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
     }
 }
 
+fn is_suitable_regex_or_mask(search_in_directory: &str, filename_without_extension: &str, searching_mode: &str, regex: &Regex) -> bool {
+    match searching_mode {
+        "1" => match_mask(filename_without_extension, search_in_directory),
+        "2" => regex.is_match(filename_without_extension),
+        _ => false
+    }
+}
+
+fn match_mask(s: &str, mask: &str) -> bool {
+    let mut s_index = 0;
+    let mut mask_index = 0;
+    let mut s_star = 0;
+    let mut mask_star = None;
+
+    while s_index < s.len() {
+        if mask_index < mask.len() && (mask.chars().nth(mask_index) == Some('?') || s.chars().nth(s_index) == mask.chars().nth(mask_index)) {
+            s_index += 1;
+            mask_index += 1;
+        } else if mask_index < mask.len() && mask.chars().nth(mask_index) == Some('*') {
+            mask_star = Some(mask_index);
+            mask_index += 1;
+            s_star = s_index;
+        } else if mask_star.is_some() {
+            mask_index = mask_star.unwrap() + 1;
+            s_star += 1;
+            s_index = s_star;
+        } else {
+            return false;
+        }
+    }
+
+    while mask_index < mask.len() && mask.chars().nth(mask_index) == Some('*') {
+        mask_index += 1;
+    }
+
+    mask_index == mask.len()
+}
+
 #[tauri::command(async, rename_all = "snake_case")]
-async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool) {
+async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool, searching_mode: String) {
+    let regex_wrapped = if searching_mode == "1" || searching_mode == "2" {
+        match Regex::new(&search_in_directory) {
+            Ok(regex) => Some(regex),
+            Err(_) => {
+                println!("Error in regex");
+                return
+            }
+        }
+    } else {
+        None
+    };
+
     for entry in WalkDir::new(&current_directory)
         .follow_links(true)
         .into_iter()
         .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-        .filter(|entry| current_directory != entry.path().to_string_lossy() && remove_extension(entry.file_name().to_str().unwrap()).to_lowercase().contains(&search_in_directory) && (if include_hidden_folders { true } else { !is_hidden_path(entry.path()) })) {
+        .filter(|entry| current_directory != entry.path().to_string_lossy() && (include_hidden_folders || !is_hidden_path(entry.path())) && (if regex_wrapped.is_none() { remove_extension!(&entry.file_name()).contains(&search_in_directory) } else { is_suitable_regex_or_mask(&search_in_directory, &remove_extension!(&entry.file_name()), &searching_mode, regex_wrapped.as_ref().unwrap()) })) {
             if STOP_FINDING.load(Ordering::Relaxed) {
                 STOP_FINDING.store(false, Ordering::Relaxed);
                 return;
             }
 
             let file_name = entry.file_name().to_string_lossy().to_string();
-            let extension = get_extension(&file_name).unwrap_or_default();
+            let extension = get_extension!(&file_name).unwrap_or_default();
 
             let emit_data: HashMap<&str, Value> = HashMap::from([
                 ("isFolder", Value::Bool(entry.path().is_dir())),

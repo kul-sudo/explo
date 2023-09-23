@@ -1,6 +1,5 @@
-import type { ComponentType, FC, KeyboardEvent, ReactNode, RefObject } from 'react'
-import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, VolumesListProps } from '@/types/types'
-import type { FixedSizeListProps } from 'react-window'
+import type { FC, KeyboardEvent, ReactNode, RefObject } from 'react'
+import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, SearchingModeValue, VolumesListProps } from '@/types/types'
 import {
   Alert,
   AlertDescription,
@@ -12,6 +11,8 @@ import {
   IconButton,
   Input,
   Progress,
+  Radio,
+  RadioGroup,
   Spinner,
   Text,
   Tooltip,
@@ -52,11 +53,9 @@ import {
 import {
   MdVideoLibrary as VideoIcon
 } from 'react-icons/md'
-import { FixedSizeList as _FixedSizeList } from 'react-window'
+import { FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 import { isEqual } from 'lodash'
-
-const FixedSizeList = _FixedSizeList as ComponentType<FixedSizeListProps>
 
 const directoryInputOnKeyDown = async (
   event: KeyboardEvent<HTMLInputElement>,
@@ -79,6 +78,7 @@ const searchButtonOnClick = (
   currentDirectory: string,
   searchInDirectory: string,
   isIncludeHiddenFoldersChecked: boolean,
+  searchingMode: SearchingModeValue,
   setIsLoading: (newState: boolean) => void,
   setIsSearching: (newState: boolean) => void,
   setReadDirArray: (newState: AddEventProps[]) => void,
@@ -90,7 +90,7 @@ const searchButtonOnClick = (
 
   const lastTimeLaunched = Date.now()
 
-  invoke('find_files_and_folders', { current_directory: currentDirectory, search_in_directory: searchInDirectory.toLowerCase(), include_hidden_folders: isIncludeHiddenFoldersChecked }).then(() => {
+  invoke('find_files_and_folders', { current_directory: currentDirectory, search_in_directory: searchInDirectory.toLowerCase(), include_hidden_folders: isIncludeHiddenFoldersChecked, searching_mode: searchingMode }).then(() => {
     setIsLoading(false)
     setIsSearching(false)
 
@@ -164,9 +164,11 @@ const Home: FC = () => {
 
   const [searchInDirectory, setSearchInDirectory] = useState<string>('')
   const [isSearching, setIsSearching] = useState<boolean>(false)
+  
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
   const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useState<boolean>(false)
-
+  const [searchingMode, setSearchingMode] = useState<SearchingModeValue>('0')
+  
   const [lastTime, setLastTime] = useState<LastTimeProps>({
     launched: 0,
     found: 0
@@ -284,12 +286,23 @@ const Home: FC = () => {
           <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={true} onChange={event => setIsSortFromFoldersToFilesChecked(event.target.checked)}>Sort from folders to files</Checkbox>
         </VStack>
 
+        <RadioGroup isDisabled={isSearching || currentDirectory.length === 0} onChange={event => {
+          setSearchingMode(event as SearchingModeValue)
+        }} value={searchingMode}>
+          <VStack alignItems="start">
+            <Radio value="0">Pure text</Radio>
+            <Radio value="1">Mask</Radio>
+            <Radio value="2">Regex</Radio>
+          </VStack>
+        </RadioGroup>
+
         <Button isDisabled={isSearching || currentDirectory.length === 0} onClick={() => {
           if (searchInDirectory.length > 0) {
             searchButtonOnClick(
               currentDirectory,
               searchInDirectory,
               isIncludeHiddenFoldersChecked,
+              searchingMode,
               setIsLoading,
               setIsSearching,
               setReadDirArray,

@@ -27,13 +27,13 @@ type VolumesListProps = {
   total_gb: number
 }[]
 
-type UndoRedoObject = {
+type UndoRedoObjectProps = {
   past: string[]
   present: string
   future: string[]
 }
 
-type ActionObject = {
+type ActionObjectProps = {
   type: 0 | 1 | 2
   data?: string
 }
@@ -43,12 +43,15 @@ type LastTimeProps = {
   found: number
 }
 
+type SearchingModeValue = '0' | '1' | '2'
+
 export type {
   FolderReferencesProps,
   AddEventProps,
   RowProps,
   VolumesListProps,
-  UndoRedoObject,
-  ActionObject,
-  LastTimeProps
+  UndoRedoObjectProps,
+  ActionObjectProps,
+  LastTimeProps,
+  SearchingModeValue
 }
