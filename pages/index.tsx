@@ -1,4 +1,4 @@
-import type { FC, ComponentType } from 'react'
+import type { ComponentType, FC, KeyboardEvent, RefObject } from 'react'
 import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, SearchingModeValue, VolumesListProps } from '@/types/types'
 import type { FixedSizeListProps } from 'react-window'
 import {
@@ -22,6 +22,7 @@ import {
 } from '@chakra-ui/react'
 import { useState, useEffect, useRef } from 'react'
 import { path } from '@tauri-apps/api'
+import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { ArrowLeftIcon, ArrowRightIcon, HardDriveIcon, RotateCw } from 'lucide-react'
@@ -32,9 +33,63 @@ import { FixedSizeList as _FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 import { isEqual } from 'lodash'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
-import { directoryInputOnKeyDown, fileOrFolderDoubleClick, searchButtonOnClick } from '@/lib/events'
 
 const FixedSizeList = _FixedSizeList as ComponentType<FixedSizeListProps>
+
+const directoryInputOnKeyDown = async (
+  event: KeyboardEvent<HTMLInputElement>,
+  directoryRef: RefObject<HTMLInputElement>,
+  currentDirectory: string,
+  setCurrentDirectory: (newState: string) => void
+) => {
+  if (event.key === 'Enter') {
+    if (directoryRef.current) {
+      if (directoryRef.current.value !== currentDirectory) {
+        if (await exists(directoryRef.current.value)) {
+          setCurrentDirectory(directoryRef.current.value)
+        }
+      }
+    }
+  }
+}
+
+const searchButtonOnClick = (
+  currentDirectory: string,
+  searchInDirectory: string,
+  isIncludeHiddenFoldersChecked: boolean,
+  searchingMode: SearchingModeValue,
+  setIsLoading: (newState: boolean) => void,
+  setIsSearching: (newState: boolean) => void,
+  setReadDirArray: (newState: AddEventProps[]) => void,
+  setLastTime: (newState: LastTimeProps) => void,
+) => {
+  setIsLoading(true)
+  setIsSearching(true)
+  setReadDirArray([])
+
+  const lastTimeLaunched = Date.now()
+
+  invoke('find_files_and_folders', { current_directory: currentDirectory, search_in_directory: searchInDirectory.toLowerCase(), include_hidden_folders: isIncludeHiddenFoldersChecked, searching_mode: searchingMode }).then(() => {
+    setIsLoading(false)
+    setIsSearching(false)
+
+    setLastTime({
+      launched: lastTimeLaunched,
+      found: Date.now()
+    })
+  })
+}
+
+const fileOrFolderDoubleClick = (
+  fileOrFolder: AddEventProps,
+  setCurrentDirectory: (newState: string) => void
+) => {
+  if (fileOrFolder.isFolder) {
+    setCurrentDirectory(fileOrFolder.path)
+  } else {
+    invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
+  }
+}
 
 let fileOrFolderKey = 0
 
