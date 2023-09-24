@@ -1,4 +1,4 @@
-import type { ComponentType, FC, KeyboardEvent, ReactNode, RefObject } from 'react'
+import type { FC, ComponentType } from 'react'
 import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, SearchingModeValue, VolumesListProps } from '@/types/types'
 import type { FixedSizeListProps } from 'react-window'
 import {
@@ -22,143 +22,21 @@ import {
 } from '@chakra-ui/react'
 import { useState, useEffect, useRef } from 'react'
 import { path } from '@tauri-apps/api'
-import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
-import { ArrowLeftIcon, ArrowRightIcon, FileIcon, FolderIcon, HardDriveIcon, RotateCw } from 'lucide-react'
+import { ArrowLeftIcon, ArrowRightIcon, HardDriveIcon, RotateCw } from 'lucide-react'
 import {
   AiFillUsb as UsbIcon,
-  AiFillHtml5 as HTMLIcon
 } from 'react-icons/ai'
-import {
-  BiLogoTypescript as TypeScriptIcon,
-  BiLogoJavascript as JavaScriptIcon,
-  BiLogoPython as PythonIcon,
-  BiSolidFileJson as JsonIcon,
-  BiSolidFileTxt as TXTIcon,
-  BiLogoCss3 as CSSIcon
-} from 'react-icons/bi'
-import {
-  BsFileEarmarkZipFill as ZipIcon,
-  BsImageFill as ImageIcon,
-  BsFillFileEarmarkPdfFill as PDFIcon,
-  BsFillMarkdownFill as MDIcon
-} from 'react-icons/bs'
-import {
-  SiLua as LuaIcon,
-  SiBun as BunIcon
-} from 'react-icons/si'
-import {
-  FaRust as RustIcon
-} from 'react-icons/fa'
-import {
-  MdVideoLibrary as VideoIcon
-} from 'react-icons/md'
 import { FixedSizeList as _FixedSizeList } from 'react-window'
 import useUndoRedo from '@/lib/useUndoRedo'
 import { isEqual } from 'lodash'
+import FileOrFolderItem from '@/components/FileOrFolderItem'
+import { directoryInputOnKeyDown, fileOrFolderDoubleClick, searchButtonOnClick } from '@/lib/events'
 
 const FixedSizeList = _FixedSizeList as ComponentType<FixedSizeListProps>
 
-const directoryInputOnKeyDown = async (
-  event: KeyboardEvent<HTMLInputElement>,
-  directoryRef: RefObject<HTMLInputElement>,
-  currentDirectory: string,
-  setCurrentDirectory: (newState: string) => void
-) => {
-  if (event.key === 'Enter') {
-    if (directoryRef.current) {
-      if (directoryRef.current.value !== currentDirectory) {
-        if (await exists(directoryRef.current.value)) {
-          setCurrentDirectory(directoryRef.current.value)
-        }
-      }
-    }
-  }
-}
-
-const searchButtonOnClick = (
-  currentDirectory: string,
-  searchInDirectory: string,
-  isIncludeHiddenFoldersChecked: boolean,
-  searchingMode: SearchingModeValue,
-  setIsLoading: (newState: boolean) => void,
-  setIsSearching: (newState: boolean) => void,
-  setReadDirArray: (newState: AddEventProps[]) => void,
-  setLastTime: (newState: LastTimeProps) => void,
-) => {
-  setIsLoading(true)
-  setIsSearching(true)
-  setReadDirArray([])
-
-  const lastTimeLaunched = Date.now()
-
-  invoke('find_files_and_folders', { current_directory: currentDirectory, search_in_directory: searchInDirectory.toLowerCase(), include_hidden_folders: isIncludeHiddenFoldersChecked, searching_mode: searchingMode }).then(() => {
-    setIsLoading(false)
-    setIsSearching(false)
-
-    setLastTime({
-      launched: lastTimeLaunched,
-      found: Date.now()
-    })
-  })
-}
-
-const fileOrFolderDoubleClick = (
-  fileOrFolder: AddEventProps,
-  setCurrentDirectory: (newState: string) => void
-) => {
-  if (fileOrFolder.isFolder) {
-    setCurrentDirectory(fileOrFolder.path)
-  } else {
-    invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
-  }
-}
-
 let fileOrFolderKey = 0
-
-const iconsForExtensions: Record<string, ReactNode> = {
-  ts: <TypeScriptIcon size={25} />,
-  tsx: <TypeScriptIcon size={25} />,
-  js: <JavaScriptIcon size={25} />,
-  jsx: <JavaScriptIcon size={25} />,
-  py: <PythonIcon size={25} />,
-  json: <JsonIcon size={25} />,
-  zip: <ZipIcon size={25} />,
-  html: <HTMLIcon size={25} />,
-  png: <ImageIcon size={25} />,
-  jpg: <ImageIcon size={25} />,
-  jpeg: <ImageIcon size={25} />,
-  svg: <ImageIcon size={25} />,
-  ico: <ImageIcon size={25} />,
-  txt: <TXTIcon size={25} />,
-  pdf: <PDFIcon size={25} />,
-  lua: <LuaIcon size={25} />,
-  rs: <RustIcon size={25} />,
-  css: <CSSIcon size={25} />,
-  md: <MDIcon size={25} />,
-  mp4: <VideoIcon size={25} />,
-  avi: <VideoIcon size={25} />,
-  mkv: <VideoIcon size={25} />,
-  webm: <VideoIcon size={25} />,
-  lockb: <BunIcon size={25} />
-}
-
-const FileOrFolderItem: FC<{fileOrFolder: AddEventProps}> = ({ fileOrFolder }) => {
-  if (typeof iconsForExtensions[fileOrFolder.extension] === 'object') {
-    return (
-      iconsForExtensions[fileOrFolder.extension]
-    )
-  } else if (fileOrFolder.isFolder) {
-    return (
-      <FolderIcon />
-    )
-  } else {
-    return (
-      <FileIcon />
-    )
-  }
-}
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
