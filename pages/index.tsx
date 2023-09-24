@@ -169,7 +169,7 @@ const Home: FC = () => {
   const [isSearching, setIsSearching] = useState<boolean>(false)
   
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
-  const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useState<boolean>(false)
+  const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useState<boolean>(true)
   const [searchingMode, setSearchingMode] = useState<SearchingModeValue>('0')
   
   const [lastTime, setLastTime] = useState<LastTimeProps>({
