@@ -79,7 +79,7 @@ async fn stop_finding() {
 
 macro_rules! remove_extension {
     ($full_filename:expr) => {
-        Path::new($full_filename).file_stem().unwrap().to_string_lossy()
+        Path::new($full_filename).file_stem().unwrap().to_string_lossy().to_string()
     };
 }
 
@@ -114,15 +114,6 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
         let _ = app_handle.emit_all("add", emit_data);
     }
 }
-
-fn is_suitable_regex_or_mask(search_in_directory: &str, filename_without_extension: &str, searching_mode: &str, regex: &Regex) -> bool {
-    match searching_mode {
-        "1" => match_mask(filename_without_extension, search_in_directory),
-        "2" => regex.is_match(filename_without_extension),
-        _ => false
-    }
-}
-
 fn match_mask(s: &str, mask: &str) -> bool {
     let mut s_index = 0;
     let mut mask_index = 0;
@@ -153,55 +144,62 @@ fn match_mask(s: &str, mask: &str) -> bool {
     mask_index == mask.len()
 }
 
+fn is_suitable(search_in_directory: &str, filename_without_extension: &str, searching_mode: &str) -> bool {
+    println!("{:?}", vec![search_in_directory, filename_without_extension, searching_mode]);
+    match searching_mode {
+        "0" => {
+            return filename_without_extension.contains(search_in_directory)
+        },
+        "1" => {
+            return match_mask(filename_without_extension, search_in_directory)
+        },
+        "2" => {
+            let regex = if searching_mode == "1" || searching_mode == "2" {
+                match Regex::new(&search_in_directory) {
+                    Ok(regex) => Some(regex),
+                    Err(_) => {
+                        println!("Error in regex");
+                        return false
+                    }
+                }
+            } else {
+                None
+            };
+
+            return regex.unwrap().is_match(filename_without_extension)
+        },
+        _ => false
+    }
+}
+
 #[tauri::command(async, rename_all = "snake_case")]
 async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool, searching_mode: String) {
-    // Precompile the regex pattern if needed
-    let regex_wrapped: Option<Regex> = if searching_mode == "1" || searching_mode == "2" {
-        match Regex::new(&search_in_directory) {
-            Ok(regex) => Some(regex),
-            Err(_) => {
-                println!("Error in regex");
-                return;
-            }
-        }
-    } else {
-        None
-    };
-
     for entry in WalkDir::new(&current_directory)
         .follow_links(true)
         .into_iter()
         .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-    {
-        let file_name = entry.file_name().to_string_lossy().to_string();
-        let extension_match = get_extension!(&file_name).unwrap_or_default();
-        let file_name_without_extension = remove_extension!(&entry.file_name()).to_lowercase();
+        .filter(|entry|
+            current_directory != entry.path().to_string_lossy() &&
+            (include_hidden_folders || !is_hidden_path(entry.path())) &&
+            is_suitable(&search_in_directory, &remove_extension!(&entry.file_name().to_string_lossy().to_string()), &searching_mode)
+        ) {
+            if STOP_FINDING.load(Ordering::Relaxed) {
+                STOP_FINDING.store(false, Ordering::Relaxed);
+                return;
+            }
 
-        // Apply the conditions within the filter
-        let matches = if STOP_FINDING.load(Ordering::Relaxed) {
-            STOP_FINDING.store(false, Ordering::Relaxed);
-            false
-        } else if let Some(regex) = &regex_wrapped {
-            is_suitable_regex_or_mask(&search_in_directory, &file_name_without_extension, &searching_mode, regex)
-        } else {
-            file_name_without_extension.contains(&search_in_directory)
-        };
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            let extension = get_extension!(&file_name).unwrap_or_default();
 
-        let is_hidden = !include_hidden_folders && is_hidden_path(entry.path());
-
-        // Combined condition for the filter
-        if matches && !is_hidden {
-            // Emit data here
             let emit_data: HashMap<&str, Value> = HashMap::from([
                 ("isFolder", Value::Bool(entry.path().is_dir())),
                 ("name", Value::String(entry.file_name().to_string_lossy().to_string())),
                 ("path", Value::String(entry.path().to_string_lossy().to_string())),
-                ("extension", Value::String(extension_match.to_string())),
+                ("extension", Value::String(extension.to_string()))
             ]);
 
             let _ = app_handle.emit_all("add", emit_data);
         }
-    }
 }
 
 #[tokio::main]
