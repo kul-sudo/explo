@@ -103,7 +103,7 @@ const Home: FC = () => {
   
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
   const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useState<boolean>(true)
-  const [searchingMode, setSearchingMode] = useState<SearchingModeValue>('0')
+  const [searchingMode, setSearchingMode] = useState<SearchingModeValue>(0)
   
   const [lastTime, setLastTime] = useState<LastTimeProps>({
     launched: 0,
@@ -192,7 +192,7 @@ const Home: FC = () => {
     { name: 'Pictures', directory: apiPath?.pictureDir! },
     { name: 'Music', directory: apiPath?.audioDir! },
     { name: 'Videos', directory: apiPath?.videoDir! }
-  ]
+  ] as const
   
   useEffect(() => {
     const findVolumesIntervalRef = setInterval(() => {
@@ -223,8 +223,8 @@ const Home: FC = () => {
         </VStack>
 
         <RadioGroup isDisabled={isSearching || currentDirectory.length === 0} onChange={event => {
-          setSearchingMode(event as SearchingModeValue)
-        }} value={searchingMode}>
+          setSearchingMode(parseInt(event) as SearchingModeValue)
+        }} value={searchingMode.toString()}>
           <VStack alignItems="start">
             <Radio value="0">Pure text</Radio>
             <Radio value="1">Mask</Radio>
@@ -233,7 +233,7 @@ const Home: FC = () => {
         </RadioGroup>
 
         <Button isDisabled={isSearching || currentDirectory.length === 0} onClick={() => {
-          if (searchingMode === '2') {
+          if (searchingMode === 2) {
             try {
               new RegExp(searchInDirectory);
             } catch(e) {

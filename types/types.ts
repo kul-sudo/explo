@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react'
 
-type FolderReferencesProps = {
+type FolderReferencesProps = Readonly<{
   name: 'Desktop' | 'Home' | 'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
   directory: () => Promise<string>
-}[]
+}[]>
 
 type AddEventProps = {
   isFolder: boolean
@@ -43,7 +43,7 @@ type LastTimeProps = {
   found: number
 }
 
-type SearchingModeValue = '0' | '1' | '2'
+type SearchingModeValue = 0 | 1 | 2
 
 export type {
   FolderReferencesProps,

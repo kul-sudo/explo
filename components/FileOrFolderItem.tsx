@@ -29,7 +29,7 @@ import {
 } from 'react-icons/md'
 import { FileIcon, FolderIcon } from 'lucide-react'
 
-const iconsForExtensions: Record<string, ReactNode> = {
+const iconsForExtensions: Readonly<Record<string, ReactNode>> = {
   ts: <TypeScriptIcon size={25} />,
   tsx: <TypeScriptIcon size={25} />,
   js: <JavaScriptIcon size={25} />,
@@ -54,7 +54,7 @@ const iconsForExtensions: Record<string, ReactNode> = {
   mkv: <VideoIcon size={25} />,
   webm: <VideoIcon size={25} />,
   lockb: <BunIcon size={25} />
-}
+} as const
 
 const FileOrFolderItem: FC<{fileOrFolder: AddEventProps}> = ({ fileOrFolder }) => {
   if (typeof iconsForExtensions[fileOrFolder.extension] === 'object') {

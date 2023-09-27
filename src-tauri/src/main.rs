@@ -1,9 +1,10 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, path::{Path, PathBuf}, collections::HashMap, sync::{Arc, atomic::{AtomicBool, Ordering}}};
+use std::{fs::read_dir, path::{Path, PathBuf}, collections::HashMap, sync::Arc};
 use regex::Regex;
 use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex;
 use walkdir::WalkDir;
 use sysinfo::{System, SystemExt, Disk, DiskExt};
 use serde::Serialize;
@@ -12,7 +13,7 @@ use lazy_static::lazy_static;
 use globmatch::is_hidden_path;
 
 lazy_static! {
-   static ref STOP_FINDING: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+   static ref STOP_FINDING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
 }
 
 macro_rules! bytes_to_gb {
@@ -101,21 +102,21 @@ fn match_mask(s: &str, mask: &str) -> bool {
     mask_index == mask.len()
 }
 
-fn is_suitable(search_in_directory: &str, filename_without_extension: &str, searching_mode: &str) -> bool {
+fn is_suitable(search_in_directory: &str, filename_without_extension: &str, searching_mode: u8) -> bool {
     match searching_mode {
         // Pure text
-        "0" => filename_without_extension.contains(search_in_directory),
+        0 => filename_without_extension.contains(search_in_directory),
         // Mask (a simplified type of regex)
-        "1" => match_mask(filename_without_extension, search_in_directory),
+        1 => match_mask(filename_without_extension, search_in_directory),
         // Regex
-        "2" => Regex::new(&search_in_directory).unwrap().is_match(filename_without_extension),
+        2 => Regex::new(&search_in_directory).unwrap().is_match(filename_without_extension),
         _ => false
     }
 }
 
 #[tauri::command(async)]
 async fn stop_finding() {
-    STOP_FINDING.store(true, Ordering::Relaxed)
+    *STOP_FINDING.lock().await = true
 }
 
 macro_rules! remove_extension {
@@ -158,7 +159,7 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
 
 
 #[tauri::command(async, rename_all = "snake_case")]
-async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool, searching_mode: String) {
+async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool, searching_mode: u8) {
     // Recursively reading the dir
     for entry in WalkDir::new(&current_directory)
         .follow_links(true)
@@ -167,12 +168,12 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
         .filter(|entry|
             current_directory != entry.path().to_string_lossy() &&
             (include_hidden_folders || !is_hidden_path(entry.path())) &&
-            is_suitable(&search_in_directory, &remove_extension!(&entry.file_name().to_string_lossy().to_string()), &searching_mode)
+            is_suitable(&search_in_directory, &remove_extension!(&entry.file_name().to_string_lossy().to_string()), searching_mode)
         ) {
             // When searching is supposed to be stopped, the variable gets set to true, so we need
             // to set its value back to true and quit the function by returning
-            if STOP_FINDING.load(Ordering::Relaxed) {
-                STOP_FINDING.store(false, Ordering::Relaxed);
+            if *STOP_FINDING.lock().await {
+                *STOP_FINDING.lock().await = false;
                 return;
             }
 
