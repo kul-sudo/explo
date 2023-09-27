@@ -104,29 +104,11 @@ fn match_mask(s: &str, mask: &str) -> bool {
 fn is_suitable(search_in_directory: &str, filename_without_extension: &str, searching_mode: &str) -> bool {
     match searching_mode {
         // Pure text
-        "0" => {
-            return filename_without_extension.contains(search_in_directory)
-        },
+        "0" => filename_without_extension.contains(search_in_directory),
         // Mask (a simplified type of regex)
-        "1" => {
-            return match_mask(filename_without_extension, search_in_directory)
-        },
+        "1" => match_mask(filename_without_extension, search_in_directory),
         // Regex
-        "2" => {
-            let regex = if searching_mode == "1" || searching_mode == "2" {
-                match Regex::new(&search_in_directory) {
-                    Ok(regex) => Some(regex),
-                    Err(_) => {
-                        println!("Error in regex");
-                        return false
-                    }
-                }
-            } else {
-                None
-            };
-
-            return regex.unwrap().is_match(filename_without_extension)
-        },
+        "2" => Regex::new(&search_in_directory).unwrap().is_match(filename_without_extension),
         _ => false
     }
 }

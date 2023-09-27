@@ -233,6 +233,22 @@ const Home: FC = () => {
         </RadioGroup>
 
         <Button isDisabled={isSearching || currentDirectory.length === 0} onClick={() => {
+          if (searchingMode === '2') {
+            try {
+              new RegExp(searchInDirectory);
+            } catch(e) {
+              toast({
+                title: 'Error',
+                description: 'The regex is invalid.',
+                status: 'error',
+                duration: 9000,
+                isClosable: true
+              })
+
+              return
+            }
+          }
+
           if (searchInDirectory.length > 0) {
             searchButtonOnClick(
               currentDirectory,
