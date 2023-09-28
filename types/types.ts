@@ -5,12 +5,8 @@ type FolderReferencesProps = Readonly<{
   directory: () => Promise<string>
 }[]>
 
-type AddEventProps = {
-  isFolder: boolean
-  name: string
-  path: string
-  extension: string
-}
+// [isFolder, name, path, extension]
+type AddEventProps = [boolean, string, string, string]
 
 type RowProps = {
   data: AddEventProps[]

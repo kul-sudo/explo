@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, path::{Path, PathBuf}, collections::HashMap, sync::Arc};
+use std::{fs::read_dir, sync::Arc, path::{Path, PathBuf}};
 use regex::Regex;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
@@ -148,12 +148,13 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
         let extension = get_extension!(&filename).unwrap_or_default();
         let entry_path = entry.path();
 
-        let _ = app_handle.emit_all("add", HashMap::from([
-            ("isFolder", Value::Bool(entry_path.is_dir())),
-            ("name", Value::String(filename.to_string())),
-            ("path", Value::String(entry_path.to_string_lossy().to_string())),
-            ("extension", Value::String(extension.to_string()))
-        ]));
+        // [isFolder, name, path, extension]
+        let _ = app_handle.emit_all("add", (
+            Value::Bool(entry_path.is_dir()),
+            Value::String(filename.to_string()),
+            Value::String(entry_path.to_string_lossy().to_string()),
+            Value::String(extension.to_string())
+        ));
     }
 }
 
@@ -181,12 +182,13 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
             let extension = get_extension!(filename).unwrap_or_default();
             let entry_path = entry.path();
 
-            let _ = app_handle.emit_all("add", HashMap::from([
-                ("isFolder", Value::Bool(entry_path.is_dir())),
-                ("name", Value::String(filename.to_string())),
-                ("path", Value::String(entry_path.to_string_lossy().to_string())),
-                ("extension", Value::String(extension.to_string()))
-            ]));
+            // [isFolder, name, path, extension]
+            let _ = app_handle.emit_all("add", (
+                Value::Bool(entry_path.is_dir()),
+                Value::String(filename.to_string()),
+                Value::String(entry_path.to_string_lossy().to_string()),
+                Value::String(extension.to_string())
+            ));
         }
 }
 

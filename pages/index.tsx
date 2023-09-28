@@ -84,10 +84,10 @@ const fileOrFolderDoubleClick = (
   fileOrFolder: AddEventProps,
   setCurrentDirectory: (newState: string) => void
 ) => {
-  if (fileOrFolder.isFolder) {
-    setCurrentDirectory(fileOrFolder.path)
+  if (fileOrFolder[0]) {
+    setCurrentDirectory(fileOrFolder[2])
   } else {
-    invoke('open_file_in_default_application', { fileName: fileOrFolder.path })
+    invoke('open_file_in_default_application', { fileName: fileOrFolder[2] })
   }
 }
 
@@ -167,14 +167,14 @@ const Home: FC = () => {
     const fileOrFolder = data[index]
 
     return (
-      <Tooltip key={index} label={fileOrFolder.path} placement="top">
+      <Tooltip key={index} label={fileOrFolder[2]} placement="top">
         <Button width="15rem" variant="outline" onDoubleClick={() => fileOrFolderDoubleClick(fileOrFolder, setCurrentDirectory)} style={style}>
           <Box position="absolute" left="0.5rem">
             <FileOrFolderItem fileOrFolder={fileOrFolder} />
           </Box>
           <Box position="absolute" right="0.5rem">
             <Text width="10rem" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" textAlign="right" mr="0.3rem">
-              {fileOrFolder.name}
+              {fileOrFolder[1]}
             </Text>
           </Box>
         </Button>
@@ -370,9 +370,9 @@ const Home: FC = () => {
             key={fileOrFolderKey}
             itemCount={readDirArray.length}
             itemData={isSortFromFoldersToFilesChecked ? readDirArray.slice().sort((a, b) => {
-              if (a.isFolder && !b.isFolder) {
+              if (a[0] && !b[0]) {
                 return -1
-              } else if (b.isFolder && !a.isFolder) {
+              } else if (b[0] && !a[0]) {
                 return 1
               } else {
                 return 0
