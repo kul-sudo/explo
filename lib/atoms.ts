@@ -7,6 +7,7 @@ export const searchingInDirectoryAtom = atom<string>('')
 export const isSearchingAtom = atom<boolean>(false)
 export const isLoadingAtom = atom<boolean>(false)
 export const isIncludeHiddenFoldersCheckedAtom = atom<boolean>(false)
+export const isIncludeFileExtensionCheckedAtom = atom<boolean>(false)
 export const isSortFromFoldersToFilesCheckedAtom = atom<boolean>(true)
 export const searchingModeAtom = atom<SearchingModeValue>(0)
 export const lastTimeAtom = atom<LastTimeProps>({

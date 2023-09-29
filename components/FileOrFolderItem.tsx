@@ -15,7 +15,7 @@ import {
 } from 'react-icons/ri'
 import {
   BsFileEarmarkZip as ZipIcon,
-  BsFillFileEarmarkPdfFill as PDFIcon,
+  BsFileEarmarkPdf as PDFIcon,
   BsMarkdown as MDIcon,
   BsFileEarmarkText as TXTIcon,
   BsFileEarmarkPlay as VideoIcon

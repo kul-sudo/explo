@@ -123,7 +123,7 @@ async fn stop_finding() {
 
 macro_rules! remove_extension {
     ($full_filename:expr) => {
-        Path::new($full_filename).file_stem().unwrap().to_string_lossy().to_string()
+        Path::new($full_filename).file_stem().unwrap().to_str().unwrap()
     };
 }
 
@@ -162,35 +162,36 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
 
 
 #[tauri::command(async, rename_all = "snake_case")]
-async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool, searching_mode: u8) {
+async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool, include_file_extension: bool, searching_mode: u8) {
     // Recursively reading the dir
     for entry in WalkDir::new(&current_directory)
         .follow_links(true)
         .into_iter()
-        .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok())
-        .filter(|entry|
-            current_directory != entry.path().to_string_lossy() &&
-            (include_hidden_folders || !is_hidden_path(entry.path())) &&
-            is_suitable!(&search_in_directory, &remove_extension!(&entry.file_name().to_string_lossy().to_string()), searching_mode)
-        ) {
+        .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok()) {
             // When searching is supposed to be stopped, the variable gets set to true, so we need
             // to set its value back to true and quit the function by returning
             if *STOP_FINDING.lock().await {
                 *STOP_FINDING.lock().await = false;
-                return;
+                return
             }
 
-            let filename = entry.file_name().to_str().unwrap();
-            let extension = get_extension!(filename).unwrap_or_default();
             let entry_path = entry.path();
+            let entry_filename = entry.file_name().to_str().unwrap();
 
-            // [isFolder, name, path, extension]
-            let _ = app_handle.emit_all("add", (
-                Value::Bool(entry_path.is_dir()),
-                Value::String(filename.to_string()),
-                Value::String(entry_path.to_string_lossy().to_string()),
-                Value::String(extension.to_string())
-            ));
+            if current_directory != entry_path.to_string_lossy() &&
+            (include_hidden_folders || !is_hidden_path(entry_path)) &&
+            is_suitable!(&search_in_directory, if include_file_extension { entry_filename } else { remove_extension!(entry_filename) }, searching_mode) {
+                let extension = get_extension!(entry_filename).unwrap_or_default();
+
+                // [isFolder, name, path, extension]
+                let _ = app_handle.emit_all("add", (
+                    Value::Bool(entry_path.is_dir()),
+                    Value::String(entry_filename.to_string()),
+                    Value::String(entry_path.to_string_lossy().to_string()),
+                    Value::String(extension.to_string())
+                ));
+            }
+
         }
 }
 

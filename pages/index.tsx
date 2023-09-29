@@ -73,6 +73,7 @@ const searchButtonOnClick = (
   currentDirectory: string,
   searchInDirectory: string,
   isIncludeHiddenFoldersChecked: boolean,
+  isIncludeFileExtensionChecked: boolean,
   searchingMode: SearchingModeValue,
   setIsLoading: (newState: boolean) => void,
   setIsSearching: (newState: boolean) => void,
@@ -85,7 +86,7 @@ const searchButtonOnClick = (
 
   const lastTimeLaunched = Date.now()
 
-  invoke('find_files_and_folders', { current_directory: currentDirectory, search_in_directory: searchInDirectory.toLowerCase(), include_hidden_folders: isIncludeHiddenFoldersChecked, searching_mode: searchingMode }).then(() => {
+  invoke('find_files_and_folders', { current_directory: currentDirectory, search_in_directory: searchInDirectory.toLowerCase(), include_hidden_folders: isIncludeHiddenFoldersChecked, include_file_extension: isIncludeFileExtensionChecked, searching_mode: searchingMode }).then(() => {
     setIsLoading(false)
     setIsSearching(false)
 
@@ -118,7 +119,9 @@ const Home: FC = () => {
   const [isLoading, setIsLoading] = useAtom(isLoadingAtom)
   
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useAtom(isIncludeHiddenFoldersCheckedAtom)
+  const [isIncludeFileExtensionChecked, setIsIncludeFileExtensionChecked] = useAtom(isIncludeHiddenFoldersCheckedAtom)
   const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useAtom(isSortFromFoldersToFilesCheckedAtom)
+
   const [searchingMode, setSearchingMode] = useAtom(searchingModeAtom)
   
   const [lastTime, setLastTime] = useAtom(lastTimeAtom)
@@ -232,6 +235,7 @@ const Home: FC = () => {
 
         <VStack alignItems="start">
           <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
+          <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={false} onChange={event => setIsIncludeFileExtensionChecked(event.target.checked)}>Include file extension</Checkbox>
           <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={true} onChange={event => setIsSortFromFoldersToFilesChecked(event.target.checked)}>Sort from folders to files</Checkbox>
         </VStack>
 
@@ -267,6 +271,7 @@ const Home: FC = () => {
               currentDirectory,
               searchInDirectory,
               isIncludeHiddenFoldersChecked,
+              isIncludeFileExtensionChecked,
               searchingMode,
               setIsLoading,
               setIsSearching,
