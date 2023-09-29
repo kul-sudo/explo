@@ -1,12 +1,11 @@
 import type { ComponentType, FC, KeyboardEvent, RefObject } from 'react'
 import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, SearchingModeValue, VolumesListProps } from '@/types/types'
 import type { FixedSizeListProps } from 'react-window'
+import type { path } from '@tauri-apps/api'
 import { useState, useEffect, useRef } from 'react'
-import { path } from '@tauri-apps/api'
 import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
-import useUndoRedo from '@/lib/useUndoRedo'
 import { isEqual } from 'lodash'
 import { useAtom } from 'jotai'
 import {
@@ -48,6 +47,7 @@ import {
   HardDriveIcon,
   RotateCw
 } from 'lucide-react'
+import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
 
 const FixedSizeList = _FixedSizeList as ComponentType<FixedSizeListProps>
@@ -200,7 +200,7 @@ const Home: FC = () => {
 
   const directoryRef = useRef<HTMLInputElement>(null)
 
-  const baseDirectories: FolderReferencesProps = [
+  const baseDirectories: Readonly<FolderReferencesProps> = [
     { name: 'Desktop', directory: apiPath?.desktopDir! },
     { name: 'Home', directory: apiPath?.homeDir! },
     { name: 'Documents', directory: apiPath?.documentDir! },
@@ -208,7 +208,7 @@ const Home: FC = () => {
     { name: 'Pictures', directory: apiPath?.pictureDir! },
     { name: 'Music', directory: apiPath?.audioDir! },
     { name: 'Videos', directory: apiPath?.videoDir! }
-  ] as const
+  ]
   
   useEffect(() => {
     const findVolumesIntervalRef = setInterval(() => {
@@ -398,7 +398,7 @@ const Home: FC = () => {
             }) : readDirArray}
             itemSize={40}
             width={300}
-            height={900}
+            height={800}
             style={{ overflowY: 'scroll' }}
           >
             {Row}

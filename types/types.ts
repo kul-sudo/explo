@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react'
 
-type FolderReferencesProps = Readonly<{
+type FolderReferencesProps = {
   name: 'Desktop' | 'Home' | 'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
   directory: () => Promise<string>
-}[]>
+}[]
 
 // [isFolder, name, path, extension]
 type AddEventProps = [boolean, string, string, string]
