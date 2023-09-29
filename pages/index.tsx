@@ -323,7 +323,7 @@ const Home: FC = () => {
 
           {volumesList.map((volume, index) => (
             <VStack key={index}>
-              <Tooltip label={`${(volume.is_removable ? 'Removable': volume.kind)} ${volume.mountpoint}`} placement="top" shouldWrapChildren>
+              <Tooltip label={`${(volume.is_removable ? 'Removable' : volume.kind)} ${volume.mountpoint}`} placement="top" shouldWrapChildren>
                 <Button isDisabled={isSearching} variant="outline" rounded="full" onClick={() => {
                   setCurrentDirectory(volume.mountpoint)
                 }}>
@@ -366,7 +366,7 @@ const Home: FC = () => {
 
           <Alert status={currentDirectory.length === 0 ? 'info' : 'success'} rounded="xl">
             <AlertIcon />
-            <AlertDescription fontWeight="medium">{currentDirectory.length === 0 ? "No directory chosen": currentDirectory}</AlertDescription>
+            <AlertDescription fontWeight="medium">{currentDirectory.length === 0 ? "No directory chosen" : currentDirectory}</AlertDescription>
           </Alert>
 
           {isLoading && readDirArray.length > 0 && (
