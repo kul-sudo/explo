@@ -1,11 +1,11 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, sync::Arc, path::{Path, PathBuf}};
+use std::{fs::read_dir, sync::Arc, path::PathBuf};
 use regex::Regex;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
-use walkdir::WalkDir;
+use walkdir::{WalkDir, DirEntry, Error};
 use sysinfo::{System, SystemExt, Disk, DiskExt};
 use serde::Serialize;
 use serde_json::Value;
@@ -13,7 +13,7 @@ use lazy_static::lazy_static;
 use globmatch::is_hidden_path;
 
 lazy_static! {
-   static ref STOP_FINDING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+    static ref STOP_FINDING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
 }
 
 macro_rules! bytes_to_gb {
@@ -105,13 +105,13 @@ fn match_mask(s: &str, mask: &str) -> bool {
 macro_rules! is_suitable {
     ($search_in_directory:expr, $filename_without_extension:expr, $searching_mode:expr) => {
         match $searching_mode {
-            // Pure text
-            0 => $filename_without_extension.contains($search_in_directory),
-            // Mask (a simplified type of regex)
-            1 => match_mask($filename_without_extension, $search_in_directory),
-            // Regex
-            2 => Regex::new($search_in_directory).unwrap().is_match($filename_without_extension),
-            _ => false
+        // Pure text
+        0 => $filename_without_extension.contains($search_in_directory),
+        // Mask (a simplified type of regex)
+        1 => match_mask($filename_without_extension, $search_in_directory),
+        // Regex
+        2 => Regex::new($search_in_directory).unwrap().is_match($filename_without_extension),
+        _ => false
         }
     };
 }
@@ -119,18 +119,6 @@ macro_rules! is_suitable {
 #[tauri::command(async)]
 async fn stop_finding() {
     *STOP_FINDING.lock().await = true
-}
-
-macro_rules! remove_extension {
-    ($full_filename:expr) => {
-        Path::new($full_filename).file_stem().unwrap().to_str().unwrap()
-    };
-}
-
-macro_rules! get_extension {
-    ($full_filename:expr) => {
-        Path::new($full_filename).extension().and_then(|c| c.to_str())
-    };
 }
 
 #[tauri::command(async)]
@@ -147,7 +135,6 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
     // Reading the top layer of the dir
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
         let filename = entry.file_name().to_string_lossy().to_string();
-        let extension = get_extension!(&filename).unwrap_or_default();
         let entry_path = entry.path();
 
         // [isFolder, name, path, extension]
@@ -155,7 +142,7 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
             Value::Bool(entry_path.is_dir()),
             Value::String(filename.to_string()),
             Value::String(entry_path.to_string_lossy().to_string()),
-            Value::String(extension.to_string())
+            Value::String(entry_path.extension().unwrap_or_default().to_string_lossy().to_string())
         ));
     }
 }
@@ -167,7 +154,7 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
     for entry in WalkDir::new(&current_directory)
         .follow_links(true)
         .into_iter()
-        .filter_map(|entry: Result<walkdir::DirEntry, walkdir::Error>| entry.ok()) {
+        .filter_map(|entry: Result<DirEntry, Error>| entry.ok()) {
             // When searching is supposed to be stopped, the variable gets set to true, so we need
             // to set its value back to true and quit the function by returning
             if *STOP_FINDING.lock().await {
@@ -180,15 +167,13 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
 
             if current_directory != entry_path.to_string_lossy() &&
             (include_hidden_folders || !is_hidden_path(entry_path)) &&
-            is_suitable!(&search_in_directory, if include_file_extension { entry_filename } else { remove_extension!(entry_filename) }, searching_mode) {
-                let extension = get_extension!(entry_filename).unwrap_or_default();
-
+            is_suitable!(&search_in_directory, if include_file_extension { entry_filename } else { entry_path.file_stem().unwrap().to_str().unwrap() }, searching_mode) {
                 // [isFolder, name, path, extension]
                 let _ = app_handle.emit_all("add", (
                     Value::Bool(entry_path.is_dir()),
                     Value::String(entry_filename.to_string()),
                     Value::String(entry_path.to_string_lossy().to_string()),
-                    Value::String(extension.to_string())
+                    Value::String(entry.path().extension().unwrap_or_default().to_string_lossy().to_string())
                 ));
             }
 
