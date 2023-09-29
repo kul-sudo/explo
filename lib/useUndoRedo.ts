@@ -1,5 +1,6 @@
 import type { UndoRedoObjectProps, ActionObjectProps } from '@/types/types'
-import { Reducer, useReducer } from 'react'
+import { useReducerAtom } from 'jotai/utils'
+import { PrimitiveAtom } from 'jotai'
 
 const enum ActionTypes {
   SET_STATE,
@@ -7,7 +8,7 @@ const enum ActionTypes {
   REDO
 }
 
-const reducerWithUndoRedo: Reducer<UndoRedoObjectProps, ActionObjectProps> = (state, action) => {
+const reducerWithUndoRedo = (state: UndoRedoObjectProps, action: ActionObjectProps) => {
   switch (action.type) {
     case ActionTypes.SET_STATE:
       return {
@@ -35,21 +36,17 @@ const reducerWithUndoRedo: Reducer<UndoRedoObjectProps, ActionObjectProps> = (st
   }
 }
 
-const useUndoRedo = (initialState: string) => {
-  const [state, dispatch] = useReducer<Reducer<UndoRedoObjectProps, ActionObjectProps>>(reducerWithUndoRedo, {
-    past: [],
-    present: initialState,
-    future: []
-  })
-
-  const { past, present, future }: { past: string[], present: string, future: string[] } = state
+const useUndoRedo = (atom: PrimitiveAtom<UndoRedoObjectProps>) => {
+  const [state, dispatch] = useReducerAtom(atom, reducerWithUndoRedo)
 
   const setState = (newState: string) => dispatch({ type: ActionTypes.SET_STATE, data: newState })
   const undo = () => dispatch({ type: ActionTypes.UNDO })
   const redo = () => dispatch({ type: ActionTypes.REDO })
 
-  const isUndoPossible = past && past.length > 0
-  const isRedoPossible = future && future.length > 0
+  const { past, present, future } = state
+  
+  const isUndoPossible = past.length > 0
+  const isRedoPossible = future.length > 0
 
   return {
     state: present,

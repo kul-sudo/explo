@@ -1,6 +1,26 @@
 import type { ComponentType, FC, KeyboardEvent, RefObject } from 'react'
 import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, SearchingModeValue, VolumesListProps } from '@/types/types'
 import type { FixedSizeListProps } from 'react-window'
+import { useState, useEffect, useRef } from 'react'
+import { path } from '@tauri-apps/api'
+import { exists } from '@tauri-apps/api/fs'
+import { invoke } from '@tauri-apps/api/tauri'
+import { listen } from '@tauri-apps/api/event'
+import useUndoRedo from '@/lib/useUndoRedo'
+import { isEqual } from 'lodash'
+import { useAtom } from 'jotai'
+import {
+  currentDirectoryAtom,
+  isIncludeHiddenFoldersCheckedAtom,
+  isLoadingAtom,
+  isSearchingAtom,
+  isSortFromFoldersToFilesCheckedAtom,
+  lastTimeAtom,
+  readDirArrayAtom,
+  searchingInDirectoryAtom,
+  searchingModeAtom,
+  volumesListAtom
+} from '@/lib/atoms'
 import {
   Alert,
   AlertDescription,
@@ -20,18 +40,14 @@ import {
   VStack,
   useToast
 } from '@chakra-ui/react'
-import { useState, useEffect, useRef } from 'react'
-import { path } from '@tauri-apps/api'
-import { exists } from '@tauri-apps/api/fs'
-import { invoke } from '@tauri-apps/api/tauri'
-import { listen } from '@tauri-apps/api/event'
-import { ArrowLeftIcon, ArrowRightIcon, HardDriveIcon, RotateCw } from 'lucide-react'
-import {
-  AiFillUsb as UsbIcon,
-} from 'react-icons/ai'
 import { FixedSizeList as _FixedSizeList } from 'react-window'
-import useUndoRedo from '@/lib/useUndoRedo'
-import { isEqual } from 'lodash'
+import { AiFillUsb as UsbIcon } from 'react-icons/ai'
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  HardDriveIcon,
+  RotateCw
+} from 'lucide-react'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
 
 const FixedSizeList = _FixedSizeList as ComponentType<FixedSizeListProps>
@@ -95,20 +111,17 @@ let fileOrFolderKey = 0
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
-  const [readDirArray, setReadDirArray] = useState<AddEventProps[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [readDirArray, setReadDirArray] = useAtom(readDirArrayAtom)
 
-  const [searchInDirectory, setSearchInDirectory] = useState<string>('')
-  const [isSearching, setIsSearching] = useState<boolean>(false)
+  const [searchInDirectory, setSearchInDirectory] = useAtom(searchingInDirectoryAtom)
+  const [isSearching, setIsSearching] = useAtom(isSearchingAtom)
+  const [isLoading, setIsLoading] = useAtom(isLoadingAtom)
   
-  const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useState<boolean>(false)
-  const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useState<boolean>(true)
-  const [searchingMode, setSearchingMode] = useState<SearchingModeValue>(0)
+  const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useAtom(isIncludeHiddenFoldersCheckedAtom)
+  const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useAtom(isSortFromFoldersToFilesCheckedAtom)
+  const [searchingMode, setSearchingMode] = useAtom(searchingModeAtom)
   
-  const [lastTime, setLastTime] = useState<LastTimeProps>({
-    launched: 0,
-    found: 0
-  })
+  const [lastTime, setLastTime] = useAtom(lastTimeAtom)
 
   const setupAppWindow = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
@@ -125,7 +138,7 @@ const Home: FC = () => {
     redo: redoCurrentDirectory,
     isUndoPossible: isCurrentDirectoryUndoPossible,
     isRedoPossible: isCurrentDirectoryRedoPossible
-  } = useUndoRedo('')
+  } = useUndoRedo(currentDirectoryAtom)
 
   useEffect(() => {
     const unlisten = listen('add', (event: { payload: AddEventProps }) => {
@@ -155,7 +168,7 @@ const Home: FC = () => {
     })
   }, [currentDirectory])
 
-  const [volumesList, setVolumesList] = useState<VolumesListProps>([])
+  const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
   useEffect(() => {
     invoke('get_volumes').then(volumes => {
@@ -204,7 +217,7 @@ const Home: FC = () => {
     }, 5000)
 
     return () => clearInterval(findVolumesIntervalRef)
-  }, [volumesList])
+  }, [])
 
   const toast = useToast()
   
