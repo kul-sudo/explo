@@ -149,7 +149,7 @@ const Home: FC = () => {
     return () => {
       unlisten.then(remove => remove())
     }
-  }, [])
+  }, [setReadDirArray])
 
   useEffect(() => {
     setIsLoading(true)
@@ -166,7 +166,7 @@ const Home: FC = () => {
         found: Date.now()
       })
     })
-  }, [currentDirectory])
+  }, [currentDirectory, setIsLoading, setLastTime, setReadDirArray])
 
   const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
@@ -174,7 +174,7 @@ const Home: FC = () => {
     invoke('get_volumes').then(volumes => {
       setVolumesList(volumes as VolumesListProps)
     })
-  }, [])
+  }, [setVolumesList])
 
   const Row = ({ data, index, style }: RowProps) => {
     const fileOrFolder = data[index]
@@ -217,7 +217,7 @@ const Home: FC = () => {
     }, 5000)
 
     return () => clearInterval(findVolumesIntervalRef)
-  }, [])
+  }, [volumesList, setVolumesList])
 
   const toast = useToast()
   
