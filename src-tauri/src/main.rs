@@ -23,7 +23,7 @@ macro_rules! bytes_to_gb {
 }
 
 #[derive(Serialize)]
-pub struct Volume {
+struct Volume {
     is_removable: bool,
     kind: String,
     mountpoint: PathBuf,
@@ -102,16 +102,18 @@ fn match_mask(s: &str, mask: &str) -> bool {
     mask_index == mask.len()
 }
 
-fn is_suitable(search_in_directory: &str, filename_without_extension: &str, searching_mode: u8) -> bool {
-    match searching_mode {
-        // Pure text
-        0 => filename_without_extension.contains(search_in_directory),
-        // Mask (a simplified type of regex)
-        1 => match_mask(filename_without_extension, search_in_directory),
-        // Regex
-        2 => Regex::new(&search_in_directory).unwrap().is_match(filename_without_extension),
-        _ => false
-    }
+macro_rules! is_suitable {
+    ($search_in_directory:expr, $filename_without_extension:expr, $searching_mode:expr) => {
+        match $searching_mode {
+            // Pure text
+            0 => $filename_without_extension.contains($search_in_directory),
+            // Mask (a simplified type of regex)
+            1 => match_mask($filename_without_extension, $search_in_directory),
+            // Regex
+            2 => Regex::new($search_in_directory).unwrap().is_match($filename_without_extension),
+            _ => false
+        }
+    };
 }
 
 #[tauri::command(async)]
@@ -169,7 +171,7 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
         .filter(|entry|
             current_directory != entry.path().to_string_lossy() &&
             (include_hidden_folders || !is_hidden_path(entry.path())) &&
-            is_suitable(&search_in_directory, &remove_extension!(&entry.file_name().to_string_lossy().to_string()), searching_mode)
+            is_suitable!(&search_in_directory, &remove_extension!(&entry.file_name().to_string_lossy().to_string()), searching_mode)
         ) {
             // When searching is supposed to be stopped, the variable gets set to true, so we need
             // to set its value back to true and quit the function by returning

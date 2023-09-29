@@ -1,21 +1,24 @@
 import type { FC, ReactNode } from 'react'
 import type { AddEventProps } from '@/types/types'
 import {
-  AiFillHtml5 as HTMLIcon
+  AiOutlineHtml5 as HTMLIcon
 } from 'react-icons/ai'
 import {
-  BiLogoTypescript as TypeScriptIcon,
-  BiLogoJavascript as JavaScriptIcon,
   BiLogoPython as PythonIcon,
-  BiSolidFileJson as JsonIcon,
-  BiSolidFileTxt as TXTIcon,
   BiLogoCss3 as CSSIcon
 } from 'react-icons/bi'
 import {
-  BsFileEarmarkZipFill as ZipIcon,
-  BsImageFill as ImageIcon,
+  TbBrandTypescript as TypeScriptIcon
+} from 'react-icons/tb'
+import {
+  RiJavascriptLine as JavaScriptIcon
+} from 'react-icons/ri'
+import {
+  BsFileEarmarkZip as ZipIcon,
   BsFillFileEarmarkPdfFill as PDFIcon,
-  BsFillMarkdownFill as MDIcon
+  BsMarkdown as MDIcon,
+  BsFileEarmarkText as TXTIcon,
+  BsFileEarmarkPlay as VideoIcon
 } from 'react-icons/bs'
 import {
   SiLua as LuaIcon,
@@ -25,8 +28,11 @@ import {
   FaRust as RustIcon
 } from 'react-icons/fa'
 import {
-  MdVideoLibrary as VideoIcon
-} from 'react-icons/md'
+  VscJson as JsonIcon
+} from 'react-icons/vsc'
+import {
+  HiOutlinePhotograph as ImageIcon
+} from 'react-icons/hi'
 import { FileIcon, FolderIcon } from 'lucide-react'
 
 const iconsForExtensions: Readonly<Record<string, ReactNode>> = {
@@ -61,7 +67,7 @@ const FileOrFolderItem: FC<{fileOrFolder: AddEventProps}> = ({ fileOrFolder }) =
     return (
       <FolderIcon />
     )
-  } else if (typeof iconsForExtensions[fileOrFolder[3]] === 'object') {
+  } else if (fileOrFolder[3] in iconsForExtensions) {
     return (
       iconsForExtensions[fileOrFolder[3]]
     )
