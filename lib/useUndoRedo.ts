@@ -1,6 +1,7 @@
 import type { UndoRedoObjectProps, ActionObjectProps } from '@/types/types'
+import type { PrimitiveAtom } from 'jotai'
+import type { Reducer } from 'react'
 import { useReducerAtom } from 'jotai/utils'
-import { PrimitiveAtom } from 'jotai'
 
 const enum ActionTypes {
   SET_STATE,
@@ -8,7 +9,7 @@ const enum ActionTypes {
   REDO
 }
 
-const reducerWithUndoRedo = (state: UndoRedoObjectProps, action: ActionObjectProps) => {
+const reducerWithUndoRedo: Reducer<UndoRedoObjectProps, ActionObjectProps> = (state, action) => {
   switch (action.type) {
     case ActionTypes.SET_STATE:
       return {
@@ -39,24 +40,17 @@ const reducerWithUndoRedo = (state: UndoRedoObjectProps, action: ActionObjectPro
 const useUndoRedo = (atom: PrimitiveAtom<UndoRedoObjectProps>) => {
   const [state, dispatch] = useReducerAtom(atom, reducerWithUndoRedo)
 
-  const setState = (newState: string) => dispatch({ type: ActionTypes.SET_STATE, data: newState })
-  const undo = () => dispatch({ type: ActionTypes.UNDO })
-  const redo = () => dispatch({ type: ActionTypes.REDO })
-
   const { past, present, future } = state
   
-  const isUndoPossible = past.length > 0
-  const isRedoPossible = future.length > 0
-
   return {
     state: present,
-    setState,
-    undo,
-    redo,
+    setState: (newState: string) => dispatch({ type: ActionTypes.SET_STATE, data: newState }),
+    undo: () => dispatch({ type: ActionTypes.UNDO }),
+    redo: () => dispatch({ type: ActionTypes.REDO }),
     pastStates: past,
     futureStates: future,
-    isUndoPossible,
-    isRedoPossible
+    isUndoPossible: past.length > 0,
+    isRedoPossible: future.length > 0
   }
 }
 
