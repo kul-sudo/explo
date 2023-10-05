@@ -50,13 +50,11 @@ const iconsForExtensions: Readonly<Record<string, ReactNode>> = {
 const FileOrFolderItem: FC<{ fileOrFolder: AddEventProps }> = ({
   fileOrFolder
 }) => {
-  if (fileOrFolder[0]) {
-    return <FolderIcon />
-  } else if (fileOrFolder[3] in iconsForExtensions) {
-    return iconsForExtensions[fileOrFolder[3]]
-  } else {
-    return <FileIcon />
-  }
+  return fileOrFolder[0] ? (
+    <FolderIcon />
+  ) : (
+    iconsForExtensions[fileOrFolder[3]] || <FileIcon />
+  )
 }
 
 export default FileOrFolderItem
