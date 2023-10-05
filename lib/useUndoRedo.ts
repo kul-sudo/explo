@@ -6,7 +6,8 @@ import { useReducerAtom } from 'jotai/utils'
 const enum ActionTypes {
   SET_STATE,
   UNDO,
-  REDO
+  REDO,
+  REMOVE_ALL_HISTORY
 }
 
 const reducerWithUndoRedo: Reducer<UndoRedoObjectProps, ActionObjectProps> = (state, action) => {
@@ -32,6 +33,12 @@ const reducerWithUndoRedo: Reducer<UndoRedoObjectProps, ActionObjectProps> = (st
         present: state.future[0],
         future: state.future.slice(1)
       }
+    case ActionTypes.REMOVE_ALL_HISTORY:
+      return {
+        past: [],
+        present: '',
+        future: []
+      }
     default:
       throw new Error()
   }
@@ -47,6 +54,7 @@ const useUndoRedo = (atom: PrimitiveAtom<UndoRedoObjectProps>) => {
     setState: (newState: string) => dispatch({ type: ActionTypes.SET_STATE, data: newState }),
     undo: () => dispatch({ type: ActionTypes.UNDO }),
     redo: () => dispatch({ type: ActionTypes.REDO }),
+    removeAllHistory: () => dispatch({ type: ActionTypes.REMOVE_ALL_HISTORY }),
     pastStates: past,
     futureStates: future,
     isUndoPossible: past.length > 0,

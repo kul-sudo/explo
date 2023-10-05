@@ -1,7 +1,11 @@
 import type { CSSProperties } from 'react'
 
 type FolderReferencesProps = {
-  name: 'Desktop' | 'Home' | 'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
+  name: 'Desktop' | 'User'
+  children?: {
+    name:  'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
+    directory: () => Promise<string>
+  }[]
   directory: () => Promise<string>
 }[]
 
@@ -30,7 +34,7 @@ type UndoRedoObjectProps = {
 }
 
 type ActionObjectProps = {
-  type: 0 | 1 | 2
+  type: 0 | 1 | 2 | 3 | 4
   data?: string
 }
 
@@ -39,7 +43,7 @@ type LastTimeProps = {
   found: number
 }
 
-type SearchingModeValue = 0 | 1 | 2
+type SearchingModeValue = 0 | 1 | 2 | 3
 
 export type {
   FolderReferencesProps,

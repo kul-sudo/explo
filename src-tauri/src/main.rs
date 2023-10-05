@@ -2,11 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{fs::read_dir, sync::Arc, path::PathBuf};
-use regex::Regex;
 use tauri::{AppHandle, Manager};
-use tokio::sync::Mutex;
 use walkdir::{WalkDir, DirEntry, Error};
 use sysinfo::{System, SystemExt, Disk, DiskExt};
+use regex::Regex;
+use tokio::sync::Mutex;
 use serde::Serialize;
 use serde_json::Value;
 use lazy_static::lazy_static;
@@ -76,11 +76,15 @@ fn match_mask(s: &str, mask: &str) -> bool {
     let mut s_index = 0;
     let mut mask_index = 0;
     let mut s_star = 0;
-    let mut mask_star = None;
+    let mut mask_star: Option<usize> = None;
 
     while s_index < s.len() {
-        if mask_index < mask.len() && (mask.chars().nth(mask_index) == Some('?') || s.chars().nth(s_index) == mask.chars().nth(mask_index)) {
-            s_index += 1;
+        if mask_index < mask.len() && (
+            // Handling the case when for the current symbol in `s` the mask has '?' or the same symbol
+            mask.chars().nth(mask_index) == Some('?') ||
+            s.chars().nth(s_index) == mask.chars().nth(mask_index)
+        ) {
+            s_index += 1; 
             mask_index += 1;
         } else if mask_index < mask.len() && mask.chars().nth(mask_index) == Some('*') {
             mask_star = Some(mask_index);
@@ -105,13 +109,13 @@ fn match_mask(s: &str, mask: &str) -> bool {
 macro_rules! is_suitable {
     ($search_in_directory:expr, $filename_without_extension:expr, $searching_mode:expr) => {
         match $searching_mode {
-        // Pure text
-        0 => $filename_without_extension.contains($search_in_directory),
-        // Mask (a simplified type of regex)
-        1 => match_mask($filename_without_extension, $search_in_directory),
-        // Regex
-        2 => Regex::new($search_in_directory).unwrap().is_match($filename_without_extension),
-        _ => false
+            // Pure text
+            0 => $filename_without_extension.contains($search_in_directory),
+            // Mask (a simplified type of regex)
+            1 => match_mask($filename_without_extension, $search_in_directory),
+            // Regex
+            2 => Regex::new($search_in_directory).unwrap().is_match($filename_without_extension),
+            _ => false
         }
     };
 }
@@ -128,25 +132,19 @@ async fn open_file_in_default_application(file_name: String) {
 
 #[tauri::command(async)]
 async fn read_directory(app_handle: AppHandle, directory: String) {
-    if directory.is_empty() {
-        return
-    };
-
     // Reading the top layer of the dir
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
-        let filename = entry.file_name().to_string_lossy().to_string();
         let entry_path = entry.path();
 
         // [isFolder, name, path, extension]
         let _ = app_handle.emit_all("add", (
             Value::Bool(entry_path.is_dir()),
-            Value::String(filename.to_string()),
+            Value::String(entry.file_name().to_string_lossy().to_string()),
             Value::String(entry_path.to_string_lossy().to_string()),
             Value::String(entry_path.extension().unwrap_or_default().to_string_lossy().to_string())
         ));
     }
 }
-
 
 #[tauri::command(async, rename_all = "snake_case")]
 async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool, include_file_extension: bool, searching_mode: u8) {

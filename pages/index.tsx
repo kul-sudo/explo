@@ -1,6 +1,12 @@
-import type { ComponentType, FC, KeyboardEvent, RefObject } from 'react'
-import type { AddEventProps, FolderReferencesProps, LastTimeProps, RowProps, SearchingModeValue, VolumesListProps } from '@/types/types'
-import type { FixedSizeListProps } from 'react-window'
+import type { FC, KeyboardEvent, RefObject } from 'react'
+import type {
+  AddEventProps,
+  FolderReferencesProps,
+  LastTimeProps,
+  RowProps,
+  SearchingModeValue,
+  VolumesListProps
+} from '@/types/types'
 import type { path } from '@tauri-apps/api'
 import { useState, useEffect, useRef } from 'react'
 import { exists } from '@tauri-apps/api/fs'
@@ -27,6 +33,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Divider,
   HStack,
   IconButton,
   Input,
@@ -39,7 +46,7 @@ import {
   VStack,
   useToast
 } from '@chakra-ui/react'
-import { FixedSizeList as _FixedSizeList } from 'react-window'
+import { FixedSizeList } from 'react-window'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
   ArrowLeftIcon,
@@ -49,8 +56,6 @@ import {
 } from 'lucide-react'
 import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
-
-const FixedSizeList = _FixedSizeList as ComponentType<FixedSizeListProps>
 
 const directoryInputOnKeyDown = async (
   event: KeyboardEvent<HTMLInputElement>,
@@ -78,7 +83,7 @@ const searchButtonOnClick = (
   setIsLoading: (newState: boolean) => void,
   setIsSearching: (newState: boolean) => void,
   setReadDirArray: (newState: AddEventProps[]) => void,
-  setLastTime: (newState: LastTimeProps) => void,
+  setLastTime: (newState: LastTimeProps) => void
 ) => {
   setIsLoading(true)
   setIsSearching(true)
@@ -86,7 +91,13 @@ const searchButtonOnClick = (
 
   const lastTimeLaunched = Date.now()
 
-  invoke('find_files_and_folders', { current_directory: currentDirectory, search_in_directory: searchInDirectory.toLowerCase(), include_hidden_folders: isIncludeHiddenFoldersChecked, include_file_extension: isIncludeFileExtensionChecked, searching_mode: searchingMode }).then(() => {
+  invoke('find_files_and_folders', {
+    current_directory: currentDirectory,
+    search_in_directory: searchInDirectory.toLowerCase(),
+    include_hidden_folders: isIncludeHiddenFoldersChecked,
+    include_file_extension: isIncludeFileExtensionChecked,
+    searching_mode: searchingMode
+  }).then(() => {
     setIsLoading(false)
     setIsSearching(false)
 
@@ -108,22 +119,43 @@ const fileOrFolderDoubleClick = (
   }
 }
 
+const findRemovedVolumes = (
+  oldVolumes: VolumesListProps,
+  newVolumes: VolumesListProps
+): Set<string> => {
+  const removedVolumes = new Set<string>()
+
+  for (const oldVolume of oldVolumes) {
+    removedVolumes.add(oldVolume.mountpoint)
+  }
+
+  for (const newVolume of newVolumes) {
+    removedVolumes.delete(newVolume.mountpoint)
+  }
+
+  return removedVolumes
+}
+
 let fileOrFolderKey = 0
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()
   const [readDirArray, setReadDirArray] = useAtom(readDirArrayAtom)
-
-  const [searchInDirectory, setSearchInDirectory] = useAtom(searchingInDirectoryAtom)
+  const [searchInDirectory, setSearchInDirectory] = useAtom(
+    searchingInDirectoryAtom
+  )
   const [isSearching, setIsSearching] = useAtom(isSearchingAtom)
   const [isLoading, setIsLoading] = useAtom(isLoadingAtom)
-  
-  const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] = useAtom(isIncludeHiddenFoldersCheckedAtom)
-  const [isIncludeFileExtensionChecked, setIsIncludeFileExtensionChecked] = useAtom(isIncludeHiddenFoldersCheckedAtom)
-  const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] = useAtom(isSortFromFoldersToFilesCheckedAtom)
+
+  const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] =
+    useAtom(isIncludeHiddenFoldersCheckedAtom)
+  const [isIncludeFileExtensionChecked, setIsIncludeFileExtensionChecked] =
+    useAtom(isIncludeHiddenFoldersCheckedAtom)
+  const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] =
+    useAtom(isSortFromFoldersToFilesCheckedAtom)
 
   const [searchingMode, setSearchingMode] = useAtom(searchingModeAtom)
-  
+
   const [lastTime, setLastTime] = useAtom(lastTimeAtom)
 
   const setupAppWindow = async () => {
@@ -139,6 +171,7 @@ const Home: FC = () => {
     setState: setCurrentDirectory,
     undo: undoCurrentDirectory,
     redo: redoCurrentDirectory,
+    removeAllHistory: undoRedoRemoveAllHistory,
     isUndoPossible: isCurrentDirectoryUndoPossible,
     isRedoPossible: isCurrentDirectoryRedoPossible
   } = useUndoRedo(currentDirectoryAtom)
@@ -161,14 +194,16 @@ const Home: FC = () => {
 
     const lastTimeLaunched = Date.now()
 
-    invoke('read_directory', { directory: currentDirectory }).then(() => {
-      setIsLoading(false)
+    if (currentDirectory.length > 0) {
+      invoke('read_directory', { directory: currentDirectory }).then(() => {
+        setIsLoading(false)
 
-      setLastTime({
-        launched: lastTimeLaunched,
-        found: Date.now()
+        setLastTime({
+          launched: lastTimeLaunched,
+          found: Date.now()
+        })
       })
-    })
+    }
   }, [currentDirectory, setIsLoading, setLastTime, setReadDirArray])
 
   const [volumesList, setVolumesList] = useAtom(volumesListAtom)
@@ -179,17 +214,31 @@ const Home: FC = () => {
     })
   }, [setVolumesList])
 
-  const Row = ({ data, index, style }: RowProps) => {
+  const Row: FC<RowProps> = ({ data, index, style }) => {
     const fileOrFolder = data[index]
 
     return (
       <Tooltip key={index} label={fileOrFolder[2]} placement="top">
-        <Button width="15rem" variant="outline" onDoubleClick={() => fileOrFolderDoubleClick(fileOrFolder, setCurrentDirectory)} style={style}>
+        <Button
+          width="15rem"
+          variant="outline"
+          onDoubleClick={() =>
+            fileOrFolderDoubleClick(fileOrFolder, setCurrentDirectory)
+          }
+          style={style}
+        >
           <Box position="absolute" left="0.5rem">
             <FileOrFolderItem fileOrFolder={fileOrFolder} />
           </Box>
           <Box position="absolute" right="0.5rem">
-            <Text width="10rem" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" textAlign="right" mr="0.3rem">
+            <Text
+              width="10rem"
+              whiteSpace="nowrap"
+              overflow="hidden"
+              textOverflow="ellipsis"
+              textAlign="right"
+              mr="0.3rem"
+            >
               {fileOrFolder[1]}
             </Text>
           </Box>
@@ -202,46 +251,118 @@ const Home: FC = () => {
 
   const baseDirectories: Readonly<FolderReferencesProps> = [
     { name: 'Desktop', directory: apiPath?.desktopDir! },
-    { name: 'Home', directory: apiPath?.homeDir! },
-    { name: 'Documents', directory: apiPath?.documentDir! },
-    { name: 'Downloads', directory: apiPath?.downloadDir! },
-    { name: 'Pictures', directory: apiPath?.pictureDir! },
-    { name: 'Music', directory: apiPath?.audioDir! },
-    { name: 'Videos', directory: apiPath?.videoDir! }
+    {
+      name: 'User',
+      directory: apiPath?.homeDir!,
+      children: [
+        { name: 'Documents', directory: apiPath?.documentDir! },
+        { name: 'Downloads', directory: apiPath?.downloadDir! },
+        { name: 'Pictures', directory: apiPath?.pictureDir! },
+        { name: 'Music', directory: apiPath?.audioDir! },
+        { name: 'Videos', directory: apiPath?.videoDir! }
+      ]
+    }
   ]
-  
+
   useEffect(() => {
     const findVolumesIntervalRef = setInterval(() => {
       invoke('get_volumes').then(volumes => {
         if (!isEqual(volumes, volumesList)) {
-          setVolumesList(volumes as VolumesListProps)
+          const typedVolumes = volumes as VolumesListProps
+          const foundRemovedVolumes = findRemovedVolumes(
+            volumesList,
+            typedVolumes
+          )
+          if (
+            Array.from(foundRemovedVolumes).some(volume =>
+              currentDirectory.startsWith(volume)
+            )
+          ) {
+            setCurrentDirectory('')
+            undoRedoRemoveAllHistory()
+          }
+          setVolumesList(typedVolumes)
         }
       })
     }, 5000)
 
     return () => clearInterval(findVolumesIntervalRef)
-  }, [volumesList, setVolumesList])
+  }, [
+    volumesList,
+    currentDirectory,
+    undoRedoRemoveAllHistory,
+    setCurrentDirectory,
+    setVolumesList
+  ])
 
   const toast = useToast()
-  
+
+  const hidden = isSearching || currentDirectory.length === 0
+
   return (
     <>
       <VStack position="fixed" top="2" right="2">
-        <Input ref={directoryRef} isDisabled={isSearching || currentDirectory.length === 0} placeholder="Directory" width="10rem" variant="filled" onKeyDown={event => {
-          directoryInputOnKeyDown(event, directoryRef, currentDirectory, setCurrentDirectory)
-        }} />
+        <Input
+          ref={directoryRef}
+          isDisabled={hidden}
+          placeholder="Directory"
+          width="10rem"
+          variant="filled"
+          onKeyDown={event => {
+            directoryInputOnKeyDown(
+              event,
+              directoryRef,
+              currentDirectory,
+              setCurrentDirectory
+            )
+          }}
+        />
 
-        <Input isDisabled={isSearching || currentDirectory.length === 0} placeholder="Search in current directory" width="10rem" variant="filled" onChange={event => setSearchInDirectory(event.target.value)} />
+        <Input
+          isDisabled={hidden}
+          placeholder="Search in current directory"
+          width="10rem"
+          variant="filled"
+          onChange={event => setSearchInDirectory(event.target.value)}
+        />
 
         <VStack alignItems="start">
-          <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={false} onChange={event => setIsIncludeHiddenFoldersChecked(event.target.checked)}>Include hidden folders</Checkbox>
-          <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={false} onChange={event => setIsIncludeFileExtensionChecked(event.target.checked)}>Include file extension</Checkbox>
-          <Checkbox isDisabled={isSearching || currentDirectory.length === 0} defaultChecked={true} onChange={event => setIsSortFromFoldersToFilesChecked(event.target.checked)}>Sort from folders to files</Checkbox>
+          <Checkbox
+            isDisabled={hidden}
+            defaultChecked={false}
+            onChange={event =>
+              setIsIncludeHiddenFoldersChecked(event.target.checked)
+            }
+          >
+            Include hidden folders
+          </Checkbox>
+          <Checkbox
+            isDisabled={hidden}
+            defaultChecked={false}
+            onChange={event =>
+              setIsIncludeFileExtensionChecked(event.target.checked)
+            }
+          >
+            Include file extension
+          </Checkbox>
+          <Checkbox
+            isDisabled={hidden}
+            defaultChecked={true}
+            onChange={event =>
+              setIsSortFromFoldersToFilesChecked(event.target.checked)
+            }
+          >
+            Sort from folders to files
+          </Checkbox>
         </VStack>
 
-        <RadioGroup isDisabled={isSearching || currentDirectory.length === 0} onChange={event => {
-          setSearchingMode(parseInt(event) as SearchingModeValue)
-        }} value={searchingMode.toString()}>
+        <RadioGroup
+          isDisabled={hidden}
+          onChange={event => {
+            setSearchingMode(parseInt(event) as SearchingModeValue)
+          }}
+          value={searchingMode.toString()}
+        >
           <VStack alignItems="start">
             <Radio value="0">Pure text</Radio>
             <Radio value="1">Mask</Radio>
@@ -249,158 +370,236 @@ const Home: FC = () => {
           </VStack>
         </RadioGroup>
 
-        <Button isDisabled={isSearching || currentDirectory.length === 0} onClick={() => {
-          if (searchingMode === 2) {
-            try {
-              new RegExp(searchInDirectory);
-            } catch(e) {
+        <Button
+          isDisabled={hidden}
+          onClick={() => {
+            if (searchingMode === 2) {
+              try {
+                new RegExp(searchInDirectory)
+              } catch (e) {
+                toast({
+                  title: 'Error',
+                  description: 'The regex is invalid.',
+                  status: 'error',
+                  duration: 9000,
+                  isClosable: true
+                })
+
+                return
+              }
+            }
+
+            if (searchInDirectory.length > 0) {
+              searchButtonOnClick(
+                currentDirectory,
+                searchInDirectory,
+                isIncludeHiddenFoldersChecked,
+                isIncludeFileExtensionChecked,
+                searchingMode,
+                setIsLoading,
+                setIsSearching,
+                setReadDirArray,
+                setLastTime
+              )
+            } else {
               toast({
                 title: 'Error',
-                description: 'The regex is invalid.',
+                description: 'Nothing to search for has been chosen.',
                 status: 'error',
                 duration: 9000,
                 isClosable: true
               })
-
-              return
             }
-          }
-
-          if (searchInDirectory.length > 0) {
-            searchButtonOnClick(
-              currentDirectory,
-              searchInDirectory,
-              isIncludeHiddenFoldersChecked,
-              isIncludeFileExtensionChecked,
-              searchingMode,
-              setIsLoading,
-              setIsSearching,
-              setReadDirArray,
-              setLastTime
-            )
-          } else {
-            toast({
-              title: 'Error',
-              description: 'Nothing to search for has been chosen.',
-              status: 'error',
-              duration: 9000,
-              isClosable: true
-            })
-          }
-        }}>Search</Button>
+          }}
+        >
+          Search
+        </Button>
 
         {isSearching && (
-          <Button variant="outline" onClick={() => {
-            invoke('stop_finding')
-          }}>Stop</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              invoke('stop_finding')
+            }}
+          >
+            Stop
+          </Button>
         )}
       </VStack>
 
       <HStack>
-        <VStack pt="0.5rem" px="0.5rem" height="100vh" position="fixed" top="0" left="0" backgroundColor="blackAlpha.400">
+        <VStack
+          pt="0.5rem"
+          px="0.5rem"
+          height="100vh"
+          position="fixed"
+          top="0"
+          left="0"
+          backgroundColor="blackAlpha.400"
+        >
           {baseDirectories.map((section, index) => (
-            <Button
-              key={index}
-              isDisabled={isSearching}
-              width="7rem"
-              rounded="full"
-              onClick={async () => {
-                setCurrentDirectory(await section.directory())
-              }}
-            >{section.name}</Button>
-          ))}
+            <>
+              <Button
+                key={index}
+                isDisabled={isSearching}
+                width="7rem"
+                rounded="full"
+                onClick={async () => {
+                  setCurrentDirectory(await section.directory())
+                }}
+              >
+                {section.name}
+              </Button>
 
-          <Button isDisabled={isSearching} width="7rem" variant="outline" onClick={() => {
-            invoke('get_volumes').then(volumes => {
-              setVolumesList(volumes as VolumesListProps)
-            })
-          }}>
-            <HStack>
-              <Text>Load</Text>
-              <HardDriveIcon />
-            </HStack>
-          </Button>
+              <HStack ml="0.5rem">
+                <Divider orientation="vertical" />
+                <VStack>
+                  {section.children?.map(child => (
+                    <Button
+                      key={index}
+                      isDisabled={isSearching}
+                      width="7rem"
+                      rounded="full"
+                      onClick={async () => {
+                        setCurrentDirectory(await child.directory())
+                      }}
+                    >
+                      {child.name}
+                    </Button>
+                  ))}
+                </VStack>
+              </HStack>
+            </>
+          ))}
 
           {volumesList.map((volume, index) => (
             <VStack key={index}>
-              <Tooltip label={`${(volume.is_removable ? 'Removable' : volume.kind)} ${volume.mountpoint}`} placement="top" shouldWrapChildren>
-                <Button isDisabled={isSearching} variant="outline" rounded="full" onClick={() => {
-                  setCurrentDirectory(volume.mountpoint)
-                }}>
-                  {volume.is_removable ? (
-                    <UsbIcon />
-                  ) : (
-                    <HardDriveIcon />
-                  )}
+              <Tooltip
+                label={`${volume.is_removable ? 'Removable' : volume.kind} ${
+                  volume.mountpoint
+                }`}
+                placement="top"
+                shouldWrapChildren
+              >
+                <Button
+                  isDisabled={isSearching}
+                  variant="outline"
+                  rounded="full"
+                  onClick={() => {
+                    setCurrentDirectory(volume.mountpoint)
+                  }}
+                >
+                  {volume.is_removable ? <UsbIcon /> : <HardDriveIcon />}
                 </Button>
               </Tooltip>
-              <Progress value={volume.used_gb / volume.total_gb * 100} width="5rem" colorScheme={isSearching ? 'blackAlpha' : 'cyan'} />
+              <Progress
+                value={(volume.used_gb / volume.total_gb) * 100}
+                width="5rem"
+                colorScheme={isSearching ? 'blackAlpha' : 'cyan'}
+              />
             </VStack>
           ))}
         </VStack>
 
-        <VStack alignItems="start" position="relative" left="9rem">
+        <VStack alignItems="start" position="relative" left="10rem">
           <HStack mt="1rem">
-            <IconButton aria-label="Go back" icon={<ArrowLeftIcon />} isDisabled={isSearching || !isCurrentDirectoryUndoPossible} rounded="full" onClick={() => {
-              if (isCurrentDirectoryUndoPossible) {
-                undoCurrentDirectory()
+            <IconButton
+              aria-label="Go back"
+              icon={<ArrowLeftIcon />}
+              isDisabled={isSearching || !isCurrentDirectoryUndoPossible}
+              rounded="full"
+              onClick={() => {
+                if (isCurrentDirectoryUndoPossible) {
+                  undoCurrentDirectory()
+                  setReadDirArray([])
+                }
+              }}
+            />
+            <IconButton
+              aria-label="Go forward"
+              icon={<ArrowRightIcon />}
+              isDisabled={isSearching || !isCurrentDirectoryRedoPossible}
+              rounded="full"
+              onClick={() => {
+                if (isCurrentDirectoryRedoPossible) {
+                  redoCurrentDirectory()
+                  setReadDirArray([])
+                }
+              }}
+            />
+            <IconButton
+              aria-label="Refresh"
+              icon={<RotateCw />}
+              isDisabled={hidden}
+              rounded="full"
+              variant="outline"
+              onClick={() => {
+                setIsLoading(true)
                 setReadDirArray([])
-              }
-            }} />
-            <IconButton aria-label="Go forward" icon={<ArrowRightIcon />} isDisabled={isSearching || !isCurrentDirectoryRedoPossible} rounded="full" onClick={() => {
-              if (isCurrentDirectoryRedoPossible) {
-                redoCurrentDirectory()
-                setReadDirArray([])
-              }
-            }} />
-            <IconButton aria-label="Refresh" icon={<RotateCw />} isDisabled={isSearching || currentDirectory.length === 0} rounded="full" variant="outline" onClick={() => {
-              setIsLoading(true)
-              setReadDirArray([])
-              fileOrFolderKey = 0
+                fileOrFolderKey = 0
 
-              invoke('read_directory', { directory: currentDirectory }).then(() => {
-                setIsLoading(false)
-              })
-            }} />
+                invoke('read_directory', { directory: currentDirectory }).then(
+                  () => {
+                    setIsLoading(false)
+                  }
+                )
+              }}
+            />
           </HStack>
 
-          <Alert status={currentDirectory.length === 0 ? 'info' : 'success'} rounded="xl">
+          <Alert
+            status={currentDirectory.length === 0 ? 'info' : 'success'}
+            rounded="xl"
+          >
             <AlertIcon />
-            <AlertDescription fontWeight="medium">{currentDirectory.length === 0 ? "No directory chosen" : currentDirectory}</AlertDescription>
+            <AlertDescription fontWeight="medium">
+              {currentDirectory.length === 0
+                ? 'No directory chosen'
+                : currentDirectory}
+            </AlertDescription>
           </Alert>
 
-          {isLoading && readDirArray.length > 0 && (
-            <Spinner />
-          )}
+          {isLoading && readDirArray.length > 0 && <Spinner />}
 
           {currentDirectory.length > 0 && (
             <Text>
-              <Text display="inline" fontWeight="bold">{readDirArray.length}</Text> 
+              <Text display="inline" fontWeight="bold">
+                {readDirArray.length}
+              </Text>
               <Text display="inline"> found in</Text>
-              <Text display="inline" fontWeight="bold"> {isSearching ? '*searching*' : ((lastTime.found - lastTime.launched) / 1000)}</Text> 
-              {!isSearching && (
-                <Text display="inline"> seconds</Text>
-              )}
+              <Text display="inline" fontWeight="bold">
+                {' '}
+                {isSearching
+                  ? '*searching*'
+                  : (lastTime.found - lastTime.launched) / 1000}
+              </Text>
+              {!isSearching && <Text display="inline"> seconds</Text>}
             </Text>
           )}
 
+          {/* @ts-ignore */}
           <FixedSizeList
             key={fileOrFolderKey}
             itemCount={readDirArray.length}
-            itemData={isSortFromFoldersToFilesChecked ? readDirArray.slice().sort((a, b) => {
-              if (a[0] && !b[0]) {
-                return -1
-              } else if (b[0] && !a[0]) {
-                return 1
-              } else {
-                return 0
-              }
-            }) : readDirArray}
+            itemData={
+              isSortFromFoldersToFilesChecked
+                ? readDirArray.slice().sort((a, b) => {
+                    if (a[0] && !b[0]) {
+                      return -1
+                    } else if (b[0] && !a[0]) {
+                      return 1
+                    } else {
+                      return 0
+                    }
+                  })
+                : readDirArray
+            }
             itemSize={40}
             width={300}
             height={800}
             style={{ overflowY: 'scroll' }}
           >
+            {/* @ts-ignore */}
             {Row}
           </FixedSizeList>
         </VStack>
