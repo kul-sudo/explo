@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 type FolderReferencesProps = {
   name: 'Desktop' | 'User'
   children?: {
-    name:  'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
+    name: 'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
     directory: () => Promise<string>
   }[]
   directory: () => Promise<string>
