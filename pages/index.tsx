@@ -124,11 +124,9 @@ const findRemovedVolumes = (
   oldVolumes: VolumesListProps,
   newVolumes: VolumesListProps
 ): Set<string> => {
-  const removedVolumes = new Set<string>()
-
-  for (const oldVolume of oldVolumes) {
-    removedVolumes.add(oldVolume.mountpoint)
-  }
+  const removedVolumes = new Set(
+    oldVolumes.map(oldVolume => oldVolume.mountpoint)
+  )
 
   for (const newVolume of newVolumes) {
     removedVolumes.delete(newVolume.mountpoint)
