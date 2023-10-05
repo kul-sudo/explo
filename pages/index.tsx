@@ -51,6 +51,7 @@ import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
+  CopyIcon,
   HardDriveIcon,
   RotateCw
 } from 'lucide-react'
@@ -358,10 +359,10 @@ const Home: FC = () => {
 
         <RadioGroup
           isDisabled={hidden}
+          value={searchingMode.toString()}
           onChange={event => {
             setSearchingMode(parseInt(event) as SearchingModeValue)
           }}
-          value={searchingMode.toString()}
         >
           <VStack alignItems="start">
             <Radio value="0">Pure text</Radio>
@@ -547,17 +548,47 @@ const Home: FC = () => {
             />
           </HStack>
 
-          <Alert
-            status={currentDirectory.length === 0 ? 'info' : 'success'}
-            rounded="xl"
-          >
-            <AlertIcon />
-            <AlertDescription fontWeight="medium">
-              {currentDirectory.length === 0
-                ? 'No directory chosen'
-                : currentDirectory}
-            </AlertDescription>
-          </Alert>
+          <HStack spacing="0rem">
+            <Alert
+              status={currentDirectory.length === 0 ? 'info' : 'success'}
+              roundedLeft="xl"
+              roundedRight="none"
+              height="3rem"
+            >
+              <AlertIcon />
+              <AlertDescription
+                fontWeight="medium"
+                width="15rem"
+                whiteSpace="nowrap"
+                overflow="hidden"
+                textOverflow="ellipsis"
+              >
+                {currentDirectory.length === 0
+                  ? 'No directory chosen'
+                  : currentDirectory}
+              </AlertDescription>
+            </Alert>
+
+            <IconButton
+              aria-label="Copy"
+              icon={<CopyIcon />}
+              height="3rem"
+              variant="outline"
+              roundedRight="2xl"
+              roundedLeft="none"
+              onClick={() => {
+                navigator.clipboard.writeText(currentDirectory).then(() => {
+                  toast({
+                    title: 'Copied',
+                    description: 'The path has been copied to the clipboard.',
+                    status: 'success',
+                    duration: 7000,
+                    isClosable: true
+                  })
+                })
+              }}
+            />
+          </HStack>
 
           {isLoading && readDirArray.length > 0 && <Spinner />}
 
@@ -586,10 +617,8 @@ const Home: FC = () => {
                 ? readDirArray.slice().sort((a, b) => {
                     if (a[0] && !b[0]) {
                       return -1
-                    } else if (b[0] && !a[0]) {
-                      return 1
                     } else {
-                      return 0
+                      return 1
                     }
                   })
                 : readDirArray
