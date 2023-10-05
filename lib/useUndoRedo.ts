@@ -10,7 +10,10 @@ const enum ActionTypes {
   REMOVE_ALL_HISTORY
 }
 
-const reducerWithUndoRedo: Reducer<UndoRedoObjectProps, ActionObjectProps> = (state, action) => {
+const reducerWithUndoRedo: Reducer<UndoRedoObjectProps, ActionObjectProps> = (
+  state,
+  action
+) => {
   switch (action.type) {
     case ActionTypes.SET_STATE:
       return {
@@ -48,10 +51,11 @@ const useUndoRedo = (atom: PrimitiveAtom<UndoRedoObjectProps>) => {
   const [state, dispatch] = useReducerAtom(atom, reducerWithUndoRedo)
 
   const { past, present, future } = state
-  
+
   return {
     state: present,
-    setState: (newState: string) => dispatch({ type: ActionTypes.SET_STATE, data: newState }),
+    setState: (newState: string) =>
+      dispatch({ type: ActionTypes.SET_STATE, data: newState }),
     undo: () => dispatch({ type: ActionTypes.UNDO }),
     redo: () => dispatch({ type: ActionTypes.REDO }),
     removeAllHistory: () => dispatch({ type: ActionTypes.REMOVE_ALL_HISTORY }),

@@ -1,18 +1,12 @@
 import type { FC, ReactNode } from 'react'
 import type { AddEventProps } from '@/types/types'
-import {
-  AiOutlineHtml5 as HTMLIcon
-} from 'react-icons/ai'
+import { AiOutlineHtml5 as HTMLIcon } from 'react-icons/ai'
 import {
   BiLogoPython as PythonIcon,
   BiLogoCss3 as CSSIcon
 } from 'react-icons/bi'
-import {
-  TbBrandTypescript as TypeScriptIcon
-} from 'react-icons/tb'
-import {
-  RiJavascriptLine as JavaScriptIcon
-} from 'react-icons/ri'
+import { TbBrandTypescript as TypeScriptIcon } from 'react-icons/tb'
+import { RiJavascriptLine as JavaScriptIcon } from 'react-icons/ri'
 import {
   BsFileEarmarkZip as ZipIcon,
   BsFileEarmarkPdf as PDFIcon,
@@ -20,19 +14,10 @@ import {
   BsFileEarmarkText as TXTIcon,
   BsFileEarmarkPlay as VideoIcon
 } from 'react-icons/bs'
-import {
-  SiLua as LuaIcon,
-  SiBun as BunIcon
-} from 'react-icons/si'
-import {
-  FaRust as RustIcon
-} from 'react-icons/fa'
-import {
-  VscJson as JsonIcon
-} from 'react-icons/vsc'
-import {
-  HiOutlinePhotograph as ImageIcon
-} from 'react-icons/hi'
+import { SiLua as LuaIcon, SiBun as BunIcon } from 'react-icons/si'
+import { FaRust as RustIcon } from 'react-icons/fa'
+import { VscJson as JsonIcon } from 'react-icons/vsc'
+import { HiOutlinePhotograph as ImageIcon } from 'react-icons/hi'
 import { FileIcon, FolderIcon } from 'lucide-react'
 
 const iconsForExtensions: Readonly<Record<string, ReactNode>> = {
@@ -62,19 +47,15 @@ const iconsForExtensions: Readonly<Record<string, ReactNode>> = {
   lockb: <BunIcon size={25} />
 }
 
-const FileOrFolderItem: FC<{fileOrFolder: AddEventProps}> = ({ fileOrFolder }) => {
+const FileOrFolderItem: FC<{ fileOrFolder: AddEventProps }> = ({
+  fileOrFolder
+}) => {
   if (fileOrFolder[0]) {
-    return (
-      <FolderIcon />
-    )
+    return <FolderIcon />
   } else if (fileOrFolder[3] in iconsForExtensions) {
-    return (
-      iconsForExtensions[fileOrFolder[3]]
-    )
+    return iconsForExtensions[fileOrFolder[3]]
   } else {
-    return (
-      <FileIcon />
-    )
+    return <FileIcon />
   }
 }
 

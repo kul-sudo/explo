@@ -1,4 +1,10 @@
-import type { AddEventProps, LastTimeProps, SearchingModeValue, UndoRedoObjectProps, VolumesListProps } from '@/types/types'
+import type {
+  AddEventProps,
+  LastTimeProps,
+  SearchingModeValue,
+  UndoRedoObjectProps,
+  VolumesListProps
+} from '@/types/types'
 import { atom } from 'jotai'
 
 export const volumesListAtom = atom<VolumesListProps>([])

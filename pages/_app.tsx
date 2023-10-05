@@ -4,7 +4,7 @@ import { ChakraProvider } from '@chakra-ui/react'
 import theme from '@/lib/theme'
 import '@/styles/globals.css'
 
-const Hydrated: FC<{children: ReactNode}> = ({ children }) => {
+const Hydrated: FC<{ children: ReactNode }> = ({ children }) => {
   const [hydration, setHydration] = useState<boolean>(false)
 
   useEffect(() => {

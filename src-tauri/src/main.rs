@@ -29,7 +29,7 @@ struct Volume {
     mountpoint: PathBuf,
     available_gb: u16,
     used_gb: u16,
-    total_gb: u16,
+    total_gb: u16
 }
 
 fn from_volume(disk: &Disk) -> Volume {
