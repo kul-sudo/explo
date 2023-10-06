@@ -8,6 +8,7 @@ import type {
   VolumesListProps
 } from '@/types/types'
 import type { path } from '@tauri-apps/api'
+import type { FixedSizeListProps } from 'react-window'
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
@@ -45,7 +46,6 @@ import {
   VStack,
   useToast
 } from '@chakra-ui/react'
-import type { FixedSizeListProps } from 'react-window'
 import { FixedSizeList as FixedSizeList_ } from 'react-window'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
