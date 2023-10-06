@@ -1,5 +1,6 @@
 import type { AppProps } from 'next/app'
-import { useState, type FC, type ReactNode, useEffect } from 'react'
+import type { FC, ReactNode } from 'react'
+import { useState, useEffect } from 'react'
 import { ChakraProvider } from '@chakra-ui/react'
 import theme from '@/lib/theme'
 import '@/styles/globals.css'

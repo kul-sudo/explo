@@ -1,7 +1,9 @@
-import type { ComponentType, FC } from 'react'
+import type { ComponentType, FC, KeyboardEvent, RefObject } from 'react'
 import type {
   AddEventProps,
   FolderReferencesProps,
+  LastTimeProps,
+  RowProps,
   SearchingModeValue,
   VolumesListProps
 } from '@/types/types'
@@ -27,6 +29,7 @@ import {
   Alert,
   AlertDescription,
   AlertIcon,
+  Box,
   Button,
   Checkbox,
   Divider,
@@ -53,13 +56,108 @@ import {
   RotateCw
 } from 'lucide-react'
 import useUndoRedo from '@/lib/useUndoRedo'
-import { directoryInputOnKeyDown, searchButtonOnClick } from '@/lib/events'
 import { findRemovedVolumes } from '@/lib/utils'
-import Row from '@/components/Row'
+import { exists } from '@tauri-apps/api/fs'
+import FileOrFolderItem from '@/components/FileOrFolderItem'
 
 const FixedSizeList = FixedSizeList_ as ComponentType<FixedSizeListProps>
 
 let fileOrFolderKey = 0
+
+const searchButtonOnClick = (
+  currentDirectory: string,
+  searchInDirectory: string,
+  isIncludeHiddenFoldersChecked: boolean,
+  isIncludeFileExtensionChecked: boolean,
+  searchingMode: SearchingModeValue,
+  setIsLoading: (newState: boolean) => void,
+  setIsSearching: (newState: boolean) => void,
+  setReadDirArray: (newState: AddEventProps[]) => void,
+  setLastTime: (newState: LastTimeProps) => void
+) => {
+  setIsLoading(true)
+  setIsSearching(true)
+  setReadDirArray([])
+
+  const lastTimeLaunched = Date.now()
+
+  invoke('find_files_and_folders', {
+    current_directory: currentDirectory,
+    search_in_directory: searchInDirectory.toLowerCase(),
+    include_hidden_folders: isIncludeHiddenFoldersChecked,
+    include_file_extension: isIncludeFileExtensionChecked,
+    searching_mode: searchingMode
+  }).then(() => {
+    setIsLoading(false)
+    setIsSearching(false)
+
+    setLastTime({
+      launched: lastTimeLaunched,
+      found: Date.now()
+    })
+  })
+}
+
+const directoryInputOnKeyDown = async (
+  event: KeyboardEvent<HTMLInputElement>,
+  directoryRef: RefObject<HTMLInputElement>,
+  currentDirectory: string,
+  setCurrentDirectory: (newState: string) => void
+) => {
+  if (event.key === 'Enter') {
+    if (directoryRef.current) {
+      if (directoryRef.current.value !== currentDirectory) {
+        if (await exists(directoryRef.current.value)) {
+          setCurrentDirectory(directoryRef.current.value)
+        }
+      }
+    }
+  }
+}
+
+const fileOrFolderOnDoubleClick = (
+  fileOrFolder: AddEventProps,
+  setCurrentDirectory: (newState: string) => void
+) => {
+  if (fileOrFolder[0]) {
+    setCurrentDirectory(fileOrFolder[2])
+  } else {
+    invoke('open_file_in_default_application', { fileName: fileOrFolder[2] })
+  }
+}
+
+const Row: FC<RowProps> = ({ data, index, style, setCurrentDirectory }) => {
+  const fileOrFolder = data[index]
+
+  return (
+    <Tooltip key={index} label={fileOrFolder[2]} placement="top">
+      <Button
+        width="15rem"
+        variant="outline"
+        onDoubleClick={() =>
+          fileOrFolderOnDoubleClick(fileOrFolder, setCurrentDirectory)
+        }
+        style={style}
+      >
+        <Box position="absolute" left="0.5rem">
+          <FileOrFolderItem fileOrFolder={fileOrFolder} />
+        </Box>
+        <Box position="absolute" right="0.5rem">
+          <Text
+            width="10rem"
+            whiteSpace="nowrap"
+            overflow="hidden"
+            textOverflow="ellipsis"
+            textAlign="right"
+            mr="0.3rem"
+          >
+            {fileOrFolder[1]}
+          </Text>
+        </Box>
+      </Button>
+    </Tooltip>
+  )
+}
 
 const Home: FC = () => {
   const [apiPath, setApiPath] = useState<typeof path>()

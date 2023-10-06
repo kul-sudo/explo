@@ -163,8 +163,8 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
             let entry_path = entry.path();
             let entry_filename = entry.file_name().to_str().unwrap();
 
-            if current_directory != entry_path.to_string_lossy() &&
-            (include_hidden_folders || !is_hidden_path(entry_path)) &&
+            if (include_hidden_folders || !is_hidden_path(entry_path)) &&
+            current_directory != entry_path.to_string_lossy() &&
             is_suitable!(&search_in_directory, if include_file_extension { entry_filename } else { entry_path.file_stem().unwrap().to_str().unwrap() }, searching_mode) {
                 // [isFolder, name, path, extension]
                 let _ = app_handle.emit_all("add", (
@@ -174,7 +174,6 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
                     Value::String(entry.path().extension().unwrap_or_default().to_string_lossy().to_string())
                 ));
             }
-
         }
 }
 
