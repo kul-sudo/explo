@@ -1,4 +1,4 @@
-import type { FC, KeyboardEvent, RefObject } from 'react'
+import type { ComponentType, FC, KeyboardEvent, RefObject } from 'react'
 import type {
   AddEventProps,
   FolderReferencesProps,
@@ -46,7 +46,10 @@ import {
   VStack,
   useToast
 } from '@chakra-ui/react'
-import { FixedSizeList } from 'react-window'
+import {
+  FixedSizeListProps,
+  FixedSizeList as FixedSizeList_
+} from 'react-window'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
   ArrowLeftIcon,
@@ -57,6 +60,8 @@ import {
 } from 'lucide-react'
 import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
+
+const FixedSizeList = FixedSizeList_ as ComponentType<FixedSizeListProps>
 
 const directoryInputOnKeyDown = async (
   event: KeyboardEvent<HTMLInputElement>,
@@ -606,7 +611,6 @@ const Home: FC = () => {
             </Text>
           )}
 
-          {/* @ts-ignore */}
           <FixedSizeList
             key={fileOrFolderKey}
             itemCount={readDirArray.length}
@@ -626,8 +630,9 @@ const Home: FC = () => {
             height={800}
             style={{ overflowY: 'scroll' }}
           >
-            {/* @ts-ignore */}
-            {Row}
+            {({ data, index, style }) => (
+              <Row index={index} style={style} data={data} />
+            )}
           </FixedSizeList>
         </VStack>
       </HStack>
