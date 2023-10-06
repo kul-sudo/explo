@@ -1,15 +1,12 @@
-import type { ComponentType, FC, KeyboardEvent, RefObject } from 'react'
+import type { ComponentType, FC } from 'react'
 import type {
   AddEventProps,
   FolderReferencesProps,
-  LastTimeProps,
-  RowProps,
   SearchingModeValue,
   VolumesListProps
 } from '@/types/types'
 import type { path } from '@tauri-apps/api'
 import { useState, useEffect, useRef } from 'react'
-import { exists } from '@tauri-apps/api/fs'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { isEqual } from 'lodash'
@@ -30,7 +27,6 @@ import {
   Alert,
   AlertDescription,
   AlertIcon,
-  Box,
   Button,
   Checkbox,
   Divider,
@@ -46,10 +42,8 @@ import {
   VStack,
   useToast
 } from '@chakra-ui/react'
-import {
-  FixedSizeListProps,
-  FixedSizeList as FixedSizeList_
-} from 'react-window'
+import type { FixedSizeListProps } from 'react-window'
+import { FixedSizeList as FixedSizeList_ } from 'react-window'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
   ArrowLeftIcon,
@@ -59,86 +53,11 @@ import {
   RotateCw
 } from 'lucide-react'
 import useUndoRedo from '@/lib/useUndoRedo'
-import FileOrFolderItem from '@/components/FileOrFolderItem'
+import { directoryInputOnKeyDown, searchButtonOnClick } from '@/lib/events'
+import { findRemovedVolumes } from '@/lib/utils'
+import Row from '@/components/Row'
 
 const FixedSizeList = FixedSizeList_ as ComponentType<FixedSizeListProps>
-
-const directoryInputOnKeyDown = async (
-  event: KeyboardEvent<HTMLInputElement>,
-  directoryRef: RefObject<HTMLInputElement>,
-  currentDirectory: string,
-  setCurrentDirectory: (newState: string) => void
-) => {
-  if (event.key === 'Enter') {
-    if (directoryRef.current) {
-      if (directoryRef.current.value !== currentDirectory) {
-        if (await exists(directoryRef.current.value)) {
-          setCurrentDirectory(directoryRef.current.value)
-        }
-      }
-    }
-  }
-}
-
-const searchButtonOnClick = (
-  currentDirectory: string,
-  searchInDirectory: string,
-  isIncludeHiddenFoldersChecked: boolean,
-  isIncludeFileExtensionChecked: boolean,
-  searchingMode: SearchingModeValue,
-  setIsLoading: (newState: boolean) => void,
-  setIsSearching: (newState: boolean) => void,
-  setReadDirArray: (newState: AddEventProps[]) => void,
-  setLastTime: (newState: LastTimeProps) => void
-) => {
-  setIsLoading(true)
-  setIsSearching(true)
-  setReadDirArray([])
-
-  const lastTimeLaunched = Date.now()
-
-  invoke('find_files_and_folders', {
-    current_directory: currentDirectory,
-    search_in_directory: searchInDirectory.toLowerCase(),
-    include_hidden_folders: isIncludeHiddenFoldersChecked,
-    include_file_extension: isIncludeFileExtensionChecked,
-    searching_mode: searchingMode
-  }).then(() => {
-    setIsLoading(false)
-    setIsSearching(false)
-
-    setLastTime({
-      launched: lastTimeLaunched,
-      found: Date.now()
-    })
-  })
-}
-
-const fileOrFolderDoubleClick = (
-  fileOrFolder: AddEventProps,
-  setCurrentDirectory: (newState: string) => void
-) => {
-  if (fileOrFolder[0]) {
-    setCurrentDirectory(fileOrFolder[2])
-  } else {
-    invoke('open_file_in_default_application', { fileName: fileOrFolder[2] })
-  }
-}
-
-const findRemovedVolumes = (
-  oldVolumes: VolumesListProps,
-  newVolumes: VolumesListProps
-): Set<string> => {
-  const removedVolumes = new Set(
-    oldVolumes.map(oldVolume => oldVolume.mountpoint)
-  )
-
-  for (const newVolume of newVolumes) {
-    removedVolumes.delete(newVolume.mountpoint)
-  }
-
-  return removedVolumes
-}
 
 let fileOrFolderKey = 0
 
@@ -162,9 +81,8 @@ const Home: FC = () => {
 
   const [lastTime, setLastTime] = useAtom(lastTimeAtom)
 
-  const setupAppWindow = async () => {
+  const setupAppWindow = async () =>
     setApiPath((await import('@tauri-apps/api')).path)
-  }
 
   useEffect(() => {
     setupAppWindow()
@@ -217,39 +135,6 @@ const Home: FC = () => {
       setVolumesList(volumes as VolumesListProps)
     })
   }, [setVolumesList])
-
-  const Row: FC<RowProps> = ({ data, index, style }) => {
-    const fileOrFolder = data[index]
-
-    return (
-      <Tooltip key={index} label={fileOrFolder[2]} placement="top">
-        <Button
-          width="15rem"
-          variant="outline"
-          onDoubleClick={() =>
-            fileOrFolderDoubleClick(fileOrFolder, setCurrentDirectory)
-          }
-          style={style}
-        >
-          <Box position="absolute" left="0.5rem">
-            <FileOrFolderItem fileOrFolder={fileOrFolder} />
-          </Box>
-          <Box position="absolute" right="0.5rem">
-            <Text
-              width="10rem"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              textAlign="right"
-              mr="0.3rem"
-            >
-              {fileOrFolder[1]}
-            </Text>
-          </Box>
-        </Button>
-      </Tooltip>
-    )
-  }
 
   const directoryRef = useRef<HTMLInputElement>(null)
 
@@ -312,14 +197,14 @@ const Home: FC = () => {
           placeholder="Directory"
           width="10rem"
           variant="filled"
-          onKeyDown={event => {
+          onKeyDown={event =>
             directoryInputOnKeyDown(
               event,
               directoryRef,
               currentDirectory,
               setCurrentDirectory
             )
-          }}
+          }
         />
 
         <Input
@@ -489,9 +374,7 @@ const Home: FC = () => {
                   isDisabled={isSearching}
                   variant="outline"
                   rounded="full"
-                  onClick={() => {
-                    setCurrentDirectory(volume.mountpoint)
-                  }}
+                  onClick={() => setCurrentDirectory(volume.mountpoint)}
                 >
                   {volume.is_removable ? <UsbIcon /> : <HardDriveIcon />}
                 </Button>
@@ -631,7 +514,12 @@ const Home: FC = () => {
             style={{ overflowY: 'scroll' }}
           >
             {({ data, index, style }) => (
-              <Row index={index} style={style} data={data} />
+              <Row
+                index={index}
+                style={style}
+                data={data}
+                setCurrentDirectory={setCurrentDirectory}
+              />
             )}
           </FixedSizeList>
         </VStack>

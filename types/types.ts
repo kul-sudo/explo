@@ -16,6 +16,7 @@ type RowProps = {
   data: AddEventProps[]
   index: number
   style: CSSProperties
+  setCurrentDirectory: (newState: string) => void
 }
 
 type VolumesListProps = {
