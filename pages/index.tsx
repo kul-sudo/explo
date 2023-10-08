@@ -12,7 +12,6 @@ import type { FixedSizeListProps } from 'react-window'
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
-import { isEqual } from 'lodash'
 import { useAtom } from 'jotai'
 import {
   currentDirectoryAtom,
@@ -208,6 +207,30 @@ const Home: FC = () => {
   }, [setReadDirArray])
 
   useEffect(() => {
+    const unlisten = listen(
+      'volumes',
+      (event: { payload: [VolumesListProps, VolumesListProps] }) => {
+        const payload = event.payload
+        
+        if (
+          Array.from(payload[0]).some(volume =>
+            currentDirectory.startsWith(volume.mountpoint)
+          )
+        ) {
+          setCurrentDirectory('')
+          undoRedoRemoveAllHistory()
+        }
+
+        setVolumesList(payload[1])
+      }
+    )
+
+    return () => {
+      unlisten.then(remove => remove())
+    }
+  }, [currentDirectory])
+
+  useEffect(() => {
     setIsLoading(true)
     setReadDirArray([])
     fileOrFolderKey = 0
@@ -228,12 +251,6 @@ const Home: FC = () => {
 
   const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
-  useEffect(() => {
-    invoke('get_volumes').then(volumes => {
-      setVolumesList(volumes as VolumesListProps)
-    })
-  }, [setVolumesList])
-
   const directoryRef = useRef<HTMLInputElement>(null)
 
   const baseDirectories: Readonly<FolderReferencesProps> = [
@@ -252,35 +269,10 @@ const Home: FC = () => {
   ]
 
   useEffect(() => {
-    const findVolumesIntervalRef = setInterval(() => {
-      invoke('get_volumes').then(volumes => {
-        if (!isEqual(volumes, volumesList)) {
-          const typedVolumes = volumes as VolumesListProps
-          const foundRemovedVolumes = findRemovedVolumes(
-            volumesList,
-            typedVolumes
-          )
-          if (
-            Array.from(foundRemovedVolumes).some(volume =>
-              currentDirectory.startsWith(volume)
-            )
-          ) {
-            setCurrentDirectory('')
-            undoRedoRemoveAllHistory()
-          }
-          setVolumesList(typedVolumes)
-        }
-      })
-    }, 5000)
-
-    return () => clearInterval(findVolumesIntervalRef)
-  }, [
-    volumesList,
-    currentDirectory,
-    undoRedoRemoveAllHistory,
-    setCurrentDirectory,
-    setVolumesList
-  ])
+    invoke('get_volumes').then(volumes => {
+      setVolumesList(volumes as VolumesListProps)
+    })
+  }, [])
 
   const toast = useToast()
 
@@ -423,6 +415,7 @@ const Home: FC = () => {
           top="0"
           left="0"
           backgroundColor="blackAlpha.400"
+          spacing="0.4rem"
         >
           {baseDirectories.map((section, index) => (
             <>
@@ -430,7 +423,7 @@ const Home: FC = () => {
                 key={index}
                 isDisabled={isSearching}
                 width="7rem"
-                rounded="full"
+                rounded="2xl"
                 onClick={async () => {
                   setCurrentDirectory(await section.directory())
                 }}
@@ -446,7 +439,8 @@ const Home: FC = () => {
                       key={index}
                       isDisabled={isSearching}
                       width="7rem"
-                      rounded="full"
+                      roundedLeft="3xl"
+                      roundedRight="1xl"
                       onClick={async () => {
                         setCurrentDirectory(await child.directory())
                       }}

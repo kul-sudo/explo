@@ -1,12 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, sync::Arc, path::PathBuf};
+use std::{fs::read_dir, sync::Arc, path::{PathBuf, Path}, time::Duration, collections::HashSet};
 use tauri::{AppHandle, Manager};
 use walkdir::{WalkDir, DirEntry, Error};
 use sysinfo::{System, SystemExt, Disk, DiskExt};
 use regex::Regex;
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, time::{interval, Interval}};
 use serde::Serialize;
 use serde_json::Value;
 use lazy_static::lazy_static;
@@ -22,7 +22,7 @@ macro_rules! bytes_to_gb {
     };
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, PartialEq, Eq, Hash, Debug, Clone)]
 struct Volume {
     is_removable: bool,
     kind: String,
@@ -33,14 +33,14 @@ struct Volume {
 }
 
 fn from_volume(disk: &Disk) -> Volume {
-    let used_bytes = disk.total_space() - disk.available_space();
-    let available_gb = bytes_to_gb!(disk.available_space());
-    let used_gb = bytes_to_gb!(used_bytes);
-    let total_gb = bytes_to_gb!(disk.total_space());
+    let used_bytes: u64 = disk.total_space() - disk.available_space();
+    let available_gb: u16 = bytes_to_gb!(disk.available_space());
+    let used_gb: u16 = bytes_to_gb!(used_bytes);
+    let total_gb: u16 = bytes_to_gb!(disk.total_space());
 
-    let mountpoint = disk.mount_point().to_path_buf();
-    let kind = format!("{:?}", disk.kind());
-    let is_removable = disk.is_removable();
+    let mountpoint: PathBuf = disk.mount_point().to_path_buf();
+    let kind: String = format!("{:?}", disk.kind());
+    let is_removable: bool = disk.is_removable();
 
     Volume {
         is_removable,
@@ -52,30 +52,26 @@ fn from_volume(disk: &Disk) -> Volume {
     }
 }
 
-#[tauri::command]
-fn get_volumes() -> Vec<Volume> {
-    let mut sys = System::new_all();
+#[tauri::command(async)]
+fn get_volumes() -> HashSet<Volume> {
+    let mut sys: System = System::new_all();
 
     sys.refresh_all();
 
-    let volumes = sys
+    let volumes: HashSet<Volume> = sys
         .disks()
         .iter()
-        .map(|disk| {
-            let volume = from_volume(disk);
-
-            return volume
-        })
-        .collect();
+        .map(|volume| from_volume(volume))
+        .collect::<HashSet<Volume>>();
 
     return volumes
 }
 
 // is_match, but for a mask
 fn match_mask(s: &str, mask: &str) -> bool {
-    let mut s_index = 0;
-    let mut mask_index = 0;
-    let mut s_star = 0;
+    let mut s_index: usize = 0;
+    let mut mask_index: usize = 0;
+    let mut s_star: usize = 0;
     let mut mask_star: Option<usize> = None;
 
     while s_index < s.len() {
@@ -120,6 +116,12 @@ macro_rules! is_suitable {
     };
 }
 
+macro_rules! only_mountpoint {
+    ($volumes_:expr) => {
+        $volumes_.iter().map(|volume| volume.mountpoint.to_str().unwrap()).collect::<HashSet<_>>()
+    }
+}
+
 #[tauri::command(async)]
 async fn stop_finding() {
     *STOP_FINDING.lock().await = true
@@ -134,7 +136,7 @@ async fn open_file_in_default_application(file_name: String) {
 async fn read_directory(app_handle: AppHandle, directory: String) {
     // Reading the top layer of the dir
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
-        let entry_path = entry.path();
+        let entry_path: PathBuf = entry.path();
 
         // [isFolder, name, path, extension]
         let _ = app_handle.emit_all("add", (
@@ -160,8 +162,8 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
                 return
             }
 
-            let entry_path = entry.path();
-            let entry_filename = entry.file_name().to_str().unwrap();
+            let entry_path: &Path = entry.path();
+            let entry_filename: &str = entry.file_name().to_str().unwrap();
 
             if (include_hidden_folders || !is_hidden_path(entry_path)) &&
             current_directory != entry_path.to_string_lossy() &&
@@ -180,6 +182,27 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
+        .on_page_load(|webview, _payload| {
+            tokio::spawn(async move {
+                let mut volumes: HashSet<Volume> = get_volumes();
+                let mut interval: Interval = interval(Duration::from_secs(1));
+
+                let _ = webview.app_handle().emit_all("volumes", &volumes);
+
+                loop {
+                    interval.tick().await;
+                    
+                    let current_volumes: HashSet<Volume> = get_volumes();
+
+                    if !only_mountpoint!(volumes).eq(&only_mountpoint!(current_volumes)) {
+                        let difference: HashSet<Volume> = volumes.difference(&current_volumes).cloned().collect::<HashSet<Volume>>();
+                        volumes = current_volumes;
+
+                        let _ = webview.app_handle().emit_all("volumes", vec![&difference, &volumes]);
+                    }
+                }
+            });
+        })
         .invoke_handler(tauri::generate_handler![open_file_in_default_application, find_files_and_folders, read_directory, stop_finding, get_volumes])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
