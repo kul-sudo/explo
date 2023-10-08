@@ -187,8 +187,6 @@ async fn main() {
                 let mut volumes: HashSet<Volume> = get_volumes();
                 let mut interval: Interval = interval(Duration::from_secs(1));
 
-                let _ = webview.app_handle().emit_all("volumes", &volumes);
-
                 loop {
                     interval.tick().await;
                     

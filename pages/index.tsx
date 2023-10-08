@@ -211,7 +211,7 @@ const Home: FC = () => {
       'volumes',
       (event: { payload: [VolumesListProps, VolumesListProps] }) => {
         const payload = event.payload
-        
+
         if (
           Array.from(payload[0]).some(volume =>
             currentDirectory.startsWith(volume.mountpoint)
