@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, sync::Arc, path::{PathBuf, Path}, time::Duration, collections::HashSet};
+use std::{fs::read_dir, sync::Arc, time::Duration, collections::HashSet, path::{PathBuf, Path}};
 use tauri::{AppHandle, Manager};
 use walkdir::{WalkDir, DirEntry, Error};
 use sysinfo::{System, SystemExt, Disk, DiskExt};
@@ -116,7 +116,7 @@ macro_rules! is_suitable {
     };
 }
 
-macro_rules! only_mountpoint {
+macro_rules! only_mountpoints {
     ($volumes_:expr) => {
         $volumes_.iter().map(|volume| volume.mountpoint.to_str().unwrap()).collect::<HashSet<_>>()
     }
@@ -182,6 +182,7 @@ async fn find_files_and_folders(app_handle: AppHandle, current_directory: String
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .on_page_load(|webview, _payload| {
             tokio::spawn(async move {
                 let mut volumes: HashSet<Volume> = get_volumes();
@@ -192,7 +193,7 @@ async fn main() {
                     
                     let current_volumes: HashSet<Volume> = get_volumes();
 
-                    if !only_mountpoint!(volumes).eq(&only_mountpoint!(current_volumes)) {
+                    if !only_mountpoints!(volumes).eq(&only_mountpoints!(current_volumes)) {
                         let difference: HashSet<Volume> = volumes.difference(&current_volumes).cloned().collect::<HashSet<Volume>>();
                         volumes = current_volumes;
 

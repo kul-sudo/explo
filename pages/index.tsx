@@ -55,7 +55,6 @@ import {
   RotateCw
 } from 'lucide-react'
 import useUndoRedo from '@/lib/useUndoRedo'
-import { findRemovedVolumes } from '@/lib/utils'
 import { exists } from '@tauri-apps/api/fs'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
 
@@ -206,6 +205,8 @@ const Home: FC = () => {
     }
   }, [setReadDirArray])
 
+  const [volumesList, setVolumesList] = useAtom(volumesListAtom)
+
   useEffect(() => {
     const unlisten = listen(
       'volumes',
@@ -228,7 +229,12 @@ const Home: FC = () => {
     return () => {
       unlisten.then(remove => remove())
     }
-  }, [currentDirectory])
+  }, [
+    currentDirectory,
+    setCurrentDirectory,
+    setVolumesList,
+    undoRedoRemoveAllHistory
+  ])
 
   useEffect(() => {
     setIsLoading(true)
@@ -248,8 +254,6 @@ const Home: FC = () => {
       })
     }
   }, [currentDirectory, setIsLoading, setLastTime, setReadDirArray])
-
-  const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
   const directoryRef = useRef<HTMLInputElement>(null)
 
@@ -272,7 +276,7 @@ const Home: FC = () => {
     invoke('get_volumes').then(volumes => {
       setVolumesList(volumes as VolumesListProps)
     })
-  }, [])
+  }, [setVolumesList])
 
   const toast = useToast()
 
@@ -453,31 +457,34 @@ const Home: FC = () => {
             </>
           ))}
 
-          {volumesList.map((volume, index) => (
-            <VStack key={index}>
-              <Tooltip
-                label={`${volume.is_removable ? 'Removable' : volume.kind} ${
-                  volume.mountpoint
-                }`}
-                placement="top"
-                shouldWrapChildren
-              >
-                <Button
-                  isDisabled={isSearching}
-                  variant="outline"
-                  rounded="full"
-                  onClick={() => setCurrentDirectory(volume.mountpoint)}
+          {volumesList
+            .slice()
+            .sort()
+            .map((volume, index) => (
+              <VStack key={index}>
+                <Tooltip
+                  label={`${volume.is_removable ? 'Removable' : volume.kind} ${
+                    volume.mountpoint
+                  }`}
+                  placement="top"
+                  shouldWrapChildren
                 >
-                  {volume.is_removable ? <UsbIcon /> : <HardDriveIcon />}
-                </Button>
-              </Tooltip>
-              <Progress
-                value={(volume.used_gb / volume.total_gb) * 100}
-                width="5rem"
-                colorScheme={isSearching ? 'blackAlpha' : 'cyan'}
-              />
-            </VStack>
-          ))}
+                  <Button
+                    isDisabled={isSearching}
+                    variant="outline"
+                    rounded="full"
+                    onClick={() => setCurrentDirectory(volume.mountpoint)}
+                  >
+                    {volume.is_removable ? <UsbIcon /> : <HardDriveIcon />}
+                  </Button>
+                </Tooltip>
+                <Progress
+                  value={(volume.used_gb / volume.total_gb) * 100}
+                  width="5rem"
+                  colorScheme={isSearching ? 'blackAlpha' : 'cyan'}
+                />
+              </VStack>
+            ))}
         </VStack>
 
         <VStack alignItems="start" position="relative" left="10rem">
