@@ -459,7 +459,16 @@ const Home: FC = () => {
 
           {volumesList
             .slice()
-            .sort()
+            .sort((a, b) => {
+              if (
+                (a.used_gb / a.total_gb) * 100 >
+                (b.used_gb / b.total_gb) * 100
+              ) {
+                return 1
+              }
+
+              return -1
+            })
             .map((volume, index) => (
               <VStack key={index}>
                 <Tooltip
