@@ -5,8 +5,8 @@ use std::{fs::read_dir, sync::Arc, path::{PathBuf, Path}, time::Duration, collec
 use tauri::{AppHandle, Manager};
 use walkdir::{WalkDir, DirEntry, Error};
 use sysinfo::{System, SystemExt, Disk, DiskExt};
-use regex::Regex;
 use tokio::{sync::Mutex, time::{interval, Interval}};
+use regex::Regex;
 use serde::Serialize;
 use serde_json::Value;
 use lazy_static::lazy_static;
