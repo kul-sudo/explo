@@ -57,10 +57,9 @@ import {
 import useUndoRedo from '@/lib/useUndoRedo'
 import { exists } from '@tauri-apps/api/fs'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
+import AutoResizer from 'react-virtualized-auto-sizer'
 
 const FixedSizeList = FixedSizeList_ as ComponentType<FixedSizeListProps>
-
-let fileOrFolderKey = 0
 
 const searchButtonOnClick = (
   currentDirectory: string,
@@ -196,7 +195,6 @@ const Home: FC = () => {
 
   useEffect(() => {
     const unlisten = listen('add', (event: { payload: AddEventProps }) => {
-      fileOrFolderKey++
       setReadDirArray(prevValue => [...prevValue, event.payload])
     })
 
@@ -239,7 +237,6 @@ const Home: FC = () => {
   useEffect(() => {
     setIsLoading(true)
     setReadDirArray([])
-    fileOrFolderKey = 0
 
     const lastTimeLaunched = Date.now()
 
@@ -531,7 +528,6 @@ const Home: FC = () => {
               onClick={() => {
                 setIsLoading(true)
                 setReadDirArray([])
-                fileOrFolderKey = 0
 
                 invoke('read_directory', { directory: currentDirectory }).then(
                   () => {
@@ -602,34 +598,37 @@ const Home: FC = () => {
             </Text>
           )}
 
-          <FixedSizeList
-            key={fileOrFolderKey}
-            itemCount={readDirArray.length}
-            itemData={
-              isSortFromFoldersToFilesChecked
-                ? readDirArray.slice().sort((a, b) => {
-                    if (a[0] && !b[0]) {
-                      return -1
-                    } else {
-                      return 1
-                    }
-                  })
-                : readDirArray
-            }
-            itemSize={40}
-            width={300}
-            height={800}
-            style={{ overflowY: 'scroll' }}
-          >
-            {({ data, index, style }) => (
-              <Row
-                index={index}
-                style={style}
-                data={data}
-                setCurrentDirectory={setCurrentDirectory}
-              />
+          <AutoResizer style={{ height: '100vh' }}>
+            {({ height, width }) => (
+              <FixedSizeList
+                itemCount={readDirArray.length}
+                itemData={
+                  isSortFromFoldersToFilesChecked
+                    ? readDirArray.slice().sort((a, b) => {
+                        if (a[0] && !b[0]) {
+                          return -1
+                        } else {
+                          return 1
+                        }
+                      })
+                    : readDirArray
+                }
+                itemSize={40}
+                width={width}
+                height={height}
+                style={{ overflowY: 'scroll' }}
+              >
+                {({ data, index, style }) => (
+                  <Row
+                    index={index}
+                    style={style}
+                    data={data}
+                    setCurrentDirectory={setCurrentDirectory}
+                  />
+                )}
+              </FixedSizeList>
             )}
-          </FixedSizeList>
+          </AutoResizer>
         </VStack>
       </HStack>
     </>
