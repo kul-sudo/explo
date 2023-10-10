@@ -1,16 +1,25 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs::read_dir, sync::Arc, time::Duration, collections::HashSet, path::{PathBuf, Path}};
-use tauri::{AppHandle, Manager};
-use walkdir::{WalkDir, DirEntry, Error};
-use sysinfo::{System, SystemExt, Disk, DiskExt};
-use tokio::{sync::Mutex, time::{interval, Interval}};
+use globmatch::is_hidden_path;
+use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Serialize;
 use serde_json::Value;
-use lazy_static::lazy_static;
-use globmatch::is_hidden_path;
+use std::{
+    collections::HashSet,
+    fs::read_dir,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
+use sysinfo::{Disk, DiskExt, System, SystemExt};
+use tauri::{AppHandle, Manager};
+use tokio::{
+    sync::Mutex,
+    time::{interval, Interval},
+};
+use walkdir::{DirEntry, Error, WalkDir};
 
 lazy_static! {
     static ref STOP_FINDING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
@@ -29,7 +38,7 @@ struct Volume {
     mountpoint: PathBuf,
     available_gb: u16,
     used_gb: u16,
-    total_gb: u16
+    total_gb: u16,
 }
 
 fn from_volume(disk: &Disk) -> Volume {
@@ -48,7 +57,7 @@ fn from_volume(disk: &Disk) -> Volume {
         mountpoint,
         available_gb,
         used_gb,
-        total_gb
+        total_gb,
     }
 }
 
@@ -64,7 +73,7 @@ fn get_volumes() -> HashSet<Volume> {
         .map(|volume| from_volume(volume))
         .collect::<HashSet<Volume>>();
 
-    return volumes
+    return volumes;
 }
 
 // is_match, but for a mask
@@ -75,12 +84,14 @@ fn match_mask(s: &str, mask: &str) -> bool {
     let mut mask_star: Option<usize> = None;
 
     while s_index < s.len() {
-        if mask_index < mask.len() && (
-            // Handling the case when for the current symbol in `s` the mask has '?' or the same symbol
-            mask.chars().nth(mask_index) == Some('?') ||
-            s.chars().nth(s_index) == mask.chars().nth(mask_index)
-        ) {
-            s_index += 1; 
+        if mask_index < mask.len()
+            && (
+                // Handling the case when for the current symbol in `s` the mask has '?' or the same symbol
+                mask.chars().nth(mask_index) == Some('?')
+                    || s.chars().nth(s_index) == mask.chars().nth(mask_index)
+            )
+        {
+            s_index += 1;
             mask_index += 1;
         } else if mask_index < mask.len() && mask.chars().nth(mask_index) == Some('*') {
             mask_star = Some(mask_index);
@@ -110,16 +121,21 @@ macro_rules! is_suitable {
             // Mask (a simplified type of regex)
             1 => match_mask($filename_without_extension, $search_in_directory),
             // Regex
-            2 => Regex::new($search_in_directory).unwrap().is_match($filename_without_extension),
-            _ => false
+            2 => Regex::new($search_in_directory)
+                .unwrap()
+                .is_match($filename_without_extension),
+            _ => false,
         }
     };
 }
 
 macro_rules! only_mountpoints {
     ($volumes_:expr) => {
-        $volumes_.iter().map(|volume| volume.mountpoint.to_str().unwrap()).collect::<HashSet<_>>()
-    }
+        $volumes_
+            .iter()
+            .map(|volume| volume.mountpoint.to_str().unwrap())
+            .collect::<HashSet<_>>()
+    };
 }
 
 #[tauri::command(async)]
@@ -139,44 +155,80 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
         let entry_path: PathBuf = entry.path();
 
         // [isFolder, name, path, extension]
-        let _ = app_handle.emit_all("add", (
-            Value::Bool(entry_path.is_dir()),
-            Value::String(entry.file_name().to_string_lossy().to_string()),
-            Value::String(entry_path.to_string_lossy().to_string()),
-            Value::String(entry_path.extension().unwrap_or_default().to_string_lossy().to_string())
-        ));
+        let _ = app_handle.emit_all(
+            "add",
+            (
+                Value::Bool(entry_path.is_dir()),
+                Value::String(entry.file_name().to_string_lossy().to_string()),
+                Value::String(entry_path.to_string_lossy().to_string()),
+                Value::String(
+                    entry_path
+                        .extension()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string(),
+                ),
+            ),
+        );
     }
 }
 
 #[tauri::command(async, rename_all = "snake_case")]
-async fn find_files_and_folders(app_handle: AppHandle, current_directory: String, search_in_directory: String, include_hidden_folders: bool, include_file_extension: bool, searching_mode: u8) {
+async fn find_files_and_folders(
+    app_handle: AppHandle,
+    current_directory: String,
+    search_in_directory: String,
+    include_hidden_folders: bool,
+    include_file_extension: bool,
+    searching_mode: u8,
+) {
     // Recursively reading the dir
     for entry in WalkDir::new(&current_directory)
         .follow_links(true)
         .into_iter()
-        .filter_map(|entry: Result<DirEntry, Error>| entry.ok()) {
-            // When searching is supposed to be stopped, the variable gets set to true, so we need
-            // to set its value back to true and quit the function by returning
-            if *STOP_FINDING.lock().await {
-                *STOP_FINDING.lock().await = false;
-                return
-            }
+        .filter_map(|entry: Result<DirEntry, Error>| entry.ok())
+    {
+        // When searching is supposed to be stopped, the variable gets set to true, so we need
+        // to set its value back to true and quit the function by returning
+        if *STOP_FINDING.lock().await {
+            *STOP_FINDING.lock().await = false;
+            return;
+        }
 
-            let entry_path: &Path = entry.path();
-            let entry_filename: &str = entry.file_name().to_str().unwrap();
+        let entry_path: &Path = entry.path();
+        let entry_filename: &str = entry.file_name().to_str().unwrap();
 
-            if (include_hidden_folders || !is_hidden_path(entry_path)) &&
-            current_directory != entry_path.to_string_lossy() &&
-            is_suitable!(&search_in_directory, if include_file_extension { entry_filename } else { entry_path.file_stem().unwrap().to_str().unwrap() }, searching_mode) {
-                // [isFolder, name, path, extension]
-                let _ = app_handle.emit_all("add", (
+        if (include_hidden_folders || !is_hidden_path(entry_path))
+            && current_directory != entry_path.to_string_lossy()
+            && is_suitable!(
+                &search_in_directory,
+                if include_file_extension {
+                    entry_filename
+                } else {
+                    entry_path.file_stem().unwrap().to_str().unwrap()
+                },
+                searching_mode
+            )
+        {
+            // [isFolder, name, path, extension]
+            let _ = app_handle.emit_all(
+                "add",
+                (
                     Value::Bool(entry_path.is_dir()),
                     Value::String(entry_filename.to_string()),
                     Value::String(entry_path.to_string_lossy().to_string()),
-                    Value::String(entry.path().extension().unwrap_or_default().to_string_lossy().to_string())
-                ));
-            }
+                    Value::String(
+                        entry
+                            .path()
+                            .extension()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string(),
+                    ),
+                ),
+            );
         }
+    }
 }
 
 #[tokio::main]
@@ -190,19 +242,30 @@ async fn main() {
 
                 loop {
                     interval.tick().await;
-                    
+
                     let current_volumes: HashSet<Volume> = get_volumes();
 
                     if !only_mountpoints!(volumes).eq(&only_mountpoints!(current_volumes)) {
-                        let difference: HashSet<Volume> = volumes.difference(&current_volumes).cloned().collect::<HashSet<Volume>>();
+                        let difference: HashSet<Volume> = volumes
+                            .difference(&current_volumes)
+                            .cloned()
+                            .collect::<HashSet<Volume>>();
                         volumes = current_volumes;
 
-                        let _ = webview.app_handle().emit_all("volumes", vec![&difference, &volumes]);
+                        let _ = webview
+                            .app_handle()
+                            .emit_all("volumes", vec![&difference, &volumes]);
                     }
                 }
             });
         })
-        .invoke_handler(tauri::generate_handler![open_file_in_default_application, find_files_and_folders, read_directory, stop_finding, get_volumes])
+        .invoke_handler(tauri::generate_handler![
+            open_file_in_default_application,
+            find_files_and_folders,
+            read_directory,
+            stop_finding,
+            get_volumes
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
