@@ -31,7 +31,7 @@ macro_rules! bytes_to_gb {
   };
 }
 
-#[derive(Serialize, PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(Serialize, PartialEq, Eq, Hash, Clone)]
 struct Volume {
   is_removable: bool,
   kind: String,
@@ -67,7 +67,7 @@ fn get_volumes() -> HashSet<Volume> {
 
   sys.refresh_all();
 
-  let volumes: HashSet<Volume> = sys
+  let volumes = sys
     .disks()
     .iter()
     .map(|volume| from_volume(volume))
@@ -237,8 +237,8 @@ async fn main() {
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .on_page_load(|webview, _payload| {
       tokio::spawn(async move {
-        let mut volumes: HashSet<Volume> = get_volumes();
         let mut interval: Interval = interval(Duration::from_secs(1));
+        let mut volumes: HashSet<Volume> = get_volumes();
 
         loop {
           interval.tick().await;
@@ -246,7 +246,7 @@ async fn main() {
           let current_volumes: HashSet<Volume> = get_volumes();
 
           if !only_mountpoints!(volumes).eq(&only_mountpoints!(current_volumes)) {
-            let difference: HashSet<Volume> = volumes
+            let difference = volumes
               .difference(&current_volumes)
               .cloned()
               .collect::<HashSet<Volume>>();
