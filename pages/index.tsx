@@ -54,8 +54,8 @@ import {
   HardDriveIcon,
   RotateCw
 } from 'lucide-react'
-import useUndoRedo from '@/lib/useUndoRedo'
 import { exists } from '@tauri-apps/api/fs'
+import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
 import AutoResizer from 'react-virtualized-auto-sizer'
 
@@ -254,6 +254,16 @@ const Home: FC = () => {
 
   const directoryRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    invoke('get_volumes').then(volumes => {
+      setVolumesList(volumes as VolumesListProps)
+    })
+  }, [setVolumesList])
+
+  const toast = useToast()
+
+  const hidden = isSearching || currentDirectory.length === 0
+
   const baseDirectories: Readonly<FolderReferencesProps> = [
     { name: 'Desktop', directory: apiPath?.desktopDir! },
     {
@@ -268,16 +278,6 @@ const Home: FC = () => {
       ]
     }
   ]
-
-  useEffect(() => {
-    invoke('get_volumes').then(volumes => {
-      setVolumesList(volumes as VolumesListProps)
-    })
-  }, [setVolumesList])
-
-  const toast = useToast()
-
-  const hidden = isSearching || currentDirectory.length === 0
 
   return (
     <>
@@ -441,7 +441,7 @@ const Home: FC = () => {
                       isDisabled={isSearching}
                       width="7rem"
                       roundedLeft="3xl"
-                      roundedRight="1xl"
+                      roundedRight="xl"
                       onClick={async () => {
                         setCurrentDirectory(await child.directory())
                       }}
@@ -457,10 +457,7 @@ const Home: FC = () => {
           {volumesList
             .slice()
             .sort((a, b) => {
-              if (
-                (a.used_gb / a.total_gb) * 100 >
-                (b.used_gb / b.total_gb) * 100
-              ) {
+              if (a.used_gb / a.total_gb > b.used_gb / b.total_gb) {
                 return 1
               }
 
@@ -469,10 +466,20 @@ const Home: FC = () => {
             .map((volume, index) => (
               <VStack key={index}>
                 <Tooltip
-                  label={`${volume.is_removable ? 'Removable' : volume.kind} ${
-                    volume.mountpoint
-                  }`}
-                  placement="top"
+                  hasArrow
+                  label={
+                    <VStack>
+                      <Text>
+                        {`${volume.is_removable ? 'Removable' : volume.kind} ${
+                          volume.mountpoint
+                        }`}
+                      </Text>
+
+                      <Text>Total: ~{volume.total_gb} GB</Text>
+                      <Text>Used: ~{volume.used_gb} GB</Text>
+                    </VStack>
+                  }
+                  placement="right"
                   shouldWrapChildren
                 >
                   <Button
