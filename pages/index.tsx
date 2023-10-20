@@ -14,18 +14,6 @@ import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { useAtom } from 'jotai'
 import {
-  currentDirectoryAtom,
-  isIncludeHiddenFoldersCheckedAtom,
-  isLoadingAtom,
-  isSearchingAtom,
-  isSortFromFoldersToFilesCheckedAtom,
-  lastTimeAtom,
-  readDirArrayAtom,
-  searchingInDirectoryAtom,
-  searchingModeAtom,
-  volumesListAtom
-} from '@/lib/atoms'
-import {
   Alert,
   AlertDescription,
   AlertIcon,
@@ -45,6 +33,18 @@ import {
   VStack,
   useToast
 } from '@chakra-ui/react'
+import {
+  currentDirectoryAtom,
+  isIncludeHiddenFoldersCheckedAtom,
+  isLoadingAtom,
+  isSearchingAtom,
+  isSortFromFoldersToFilesCheckedAtom,
+  lastTimeAtom,
+  readDirArrayAtom,
+  searchingInDirectoryAtom,
+  searchingModeAtom,
+  volumesListAtom
+} from '@/lib/atoms'
 import { FixedSizeList as FixedSizeList_ } from 'react-window'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
