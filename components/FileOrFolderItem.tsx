@@ -1,4 +1,4 @@
-import type { FC, ReactNode } from 'react'
+import type { FC } from 'react'
 import type { AddEventProps } from '@/types/types'
 import { AiOutlineHtml5 as HTMLIcon } from 'react-icons/ai'
 import {
@@ -20,7 +20,7 @@ import { VscJson as JsonIcon } from 'react-icons/vsc'
 import { HiOutlinePhotograph as ImageIcon } from 'react-icons/hi'
 import { FileIcon, FolderIcon } from 'lucide-react'
 
-const iconsForExtensions: Readonly<Record<string, ReactNode>> = {
+const iconsForExtensions = Object.freeze({
   ts: <TypeScriptIcon size={25} />,
   tsx: <TypeScriptIcon size={25} />,
   js: <JavaScriptIcon size={25} />,
@@ -45,7 +45,7 @@ const iconsForExtensions: Readonly<Record<string, ReactNode>> = {
   mkv: <VideoIcon size={25} />,
   webm: <VideoIcon size={25} />,
   lockb: <BunIcon size={25} />
-}
+})
 
 const FileOrFolderItem: FC<{ fileOrFolder: AddEventProps }> = ({
   fileOrFolder
@@ -53,7 +53,9 @@ const FileOrFolderItem: FC<{ fileOrFolder: AddEventProps }> = ({
   return fileOrFolder[0] ? (
     <FolderIcon />
   ) : (
-    iconsForExtensions[fileOrFolder[3]] || <FileIcon />
+    iconsForExtensions[fileOrFolder[3] as keyof typeof iconsForExtensions] || (
+      <FileIcon />
+    )
   )
 }
 

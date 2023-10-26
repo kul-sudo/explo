@@ -37,6 +37,7 @@ import {
   currentDirectoryAtom,
   isIncludeHiddenFoldersCheckedAtom,
   isLoadingAtom,
+  isLoadingVolumesAtom,
   isSearchingAtom,
   isSortFromFoldersToFilesCheckedAtom,
   lastTimeAtom,
@@ -57,7 +58,6 @@ import {
 import { exists } from '@tauri-apps/api/fs'
 import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
-import AutoResizer from 'react-virtualized-auto-sizer'
 
 const FixedSizeList = FixedSizeList_ as ComponentType<FixedSizeListProps>
 
@@ -175,6 +175,7 @@ const Home: FC = () => {
   const [searchingMode, setSearchingMode] = useAtom(searchingModeAtom)
 
   const [lastTime, setLastTime] = useAtom(lastTimeAtom)
+  const [isLoadingVolumes, setIsLoadingVolumes] = useAtom(isLoadingVolumesAtom)
 
   const setupAppWindow = async () =>
     setApiPath((await import('@tauri-apps/api')).path)
@@ -257,8 +258,9 @@ const Home: FC = () => {
   useEffect(() => {
     invoke('get_volumes').then(volumes => {
       setVolumesList(volumes as VolumesListProps)
+      setIsLoadingVolumes(false)
     })
-  }, [setVolumesList])
+  }, [setVolumesList, setIsLoadingVolumes])
 
   const toast = useToast()
 
@@ -416,12 +418,12 @@ const Home: FC = () => {
           top="0"
           left="0"
           backgroundColor="blackAlpha.400"
-          spacing="0.4rem"
+          spacing="0.3rem"
         >
-          {baseDirectories.map((section, index) => (
+          {baseDirectories.map(section => (
             <>
               <Button
-                key={index}
+                key={section.name}
                 isDisabled={isSearching}
                 width="7rem"
                 rounded="2xl"
@@ -437,7 +439,9 @@ const Home: FC = () => {
                 <VStack>
                   {section.children?.map(child => (
                     <Button
-                      key={index}
+                      _first={{ marginTop: '0.2rem' }}
+                      _last={{ marginBottom: '0.4rem' }}
+                      key={child.name}
                       isDisabled={isSearching}
                       width="7rem"
                       roundedLeft="3xl"
@@ -454,6 +458,8 @@ const Home: FC = () => {
             </>
           ))}
 
+          {isLoadingVolumes && <Spinner />}
+
           {volumesList
             .slice()
             .sort((a, b) => {
@@ -463,8 +469,8 @@ const Home: FC = () => {
 
               return -1
             })
-            .map((volume, index) => (
-              <VStack key={index}>
+            .map(volume => (
+              <VStack key={volume.mountpoint}>
                 <Tooltip
                   hasArrow
                   label={
@@ -537,9 +543,7 @@ const Home: FC = () => {
                 setReadDirArray([])
 
                 invoke('read_directory', { directory: currentDirectory }).then(
-                  () => {
-                    setIsLoading(false)
-                  }
+                  () => setIsLoading(false)
                 )
               }}
             />
@@ -605,37 +609,33 @@ const Home: FC = () => {
             </Text>
           )}
 
-          <AutoResizer style={{ height: '100vh' }}>
-            {({ height, width }) => (
-              <FixedSizeList
-                itemCount={readDirArray.length}
-                itemData={
-                  isSortFromFoldersToFilesChecked
-                    ? readDirArray.slice().sort((a, b) => {
-                        if (a[0] && !b[0]) {
-                          return -1
-                        } else {
-                          return 1
-                        }
-                      })
-                    : readDirArray
-                }
-                itemSize={40}
-                width={width}
-                height={height}
-                style={{ overflowY: 'scroll' }}
-              >
-                {({ data, index, style }) => (
-                  <Row
-                    index={index}
-                    style={style}
-                    data={data}
-                    setCurrentDirectory={setCurrentDirectory}
-                  />
-                )}
-              </FixedSizeList>
+          <FixedSizeList
+            itemCount={readDirArray.length}
+            itemData={
+              isSortFromFoldersToFilesChecked
+                ? readDirArray.slice().sort((a, b) => {
+                    if (a[0] && !b[0]) {
+                      return -1
+                    } else {
+                      return 1
+                    }
+                  })
+                : readDirArray
+            }
+            itemSize={40}
+            width={350}
+            height={1000}
+            style={{ overflowY: 'scroll' }}
+          >
+            {({ data, index, style }) => (
+              <Row
+                index={index}
+                style={style}
+                data={data}
+                setCurrentDirectory={setCurrentDirectory}
+              />
             )}
-          </AutoResizer>
+          </FixedSizeList>
         </VStack>
       </HStack>
     </>
