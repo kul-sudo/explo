@@ -465,13 +465,6 @@ const Home: FC = () => {
             </>
           ))}
 
-          <Divider
-            orientation="vertical"
-            position="absolute"
-            right="0"
-            height="150vh"
-          />
-
           {isLoadingVolumes && <Spinner />}
 
           {volumesList
