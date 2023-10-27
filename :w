@@ -417,6 +417,12 @@ const Home: FC = () => {
 
       <HStack>
         <VStack
+          borderRightWidth="1px"
+          borderRightColor={useColorModeValue(
+            'blackAlpha.300',
+            'whiteAlpha.800'
+          )}
+          pt="0.5rem"
           px="0.5rem"
           height="100vh"
           position="fixed"
@@ -427,9 +433,6 @@ const Home: FC = () => {
           {baseDirectories.map(section => (
             <>
               <Button
-                _first={{
-                  marginTop: '0.5rem'
-                }}
                 key={section.name}
                 isDisabled={isSearching}
                 width="7rem"
@@ -465,13 +468,6 @@ const Home: FC = () => {
             </>
           ))}
 
-          <Divider
-            orientation="vertical"
-            position="absolute"
-            right="0"
-            height="150vh"
-          />
-
           {isLoadingVolumes && <Spinner />}
 
           {volumesList
@@ -500,6 +496,7 @@ const Home: FC = () => {
                     </VStack>
                   }
                   placement="right"
+                  shouldWrapChildren
                 >
                   <Button
                     isDisabled={isSearching}
@@ -562,9 +559,9 @@ const Home: FC = () => {
             />
             <IconButton
               aria-label="Switch theme"
-              colorScheme={useColorModeValue('teal', 'purple')}
               icon={colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
               rounded="full"
+              variant="outline"
               onClick={toggleColorMode}
             />
           </HStack>

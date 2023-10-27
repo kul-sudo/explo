@@ -9,7 +9,7 @@ const font = Inter({ subsets: ['latin'] })
 const styles: ThemeOverride['styles'] = {
   global: (props: GlobalStyleProps) => ({
     body: {
-      bg: mode('#d1d1d1', '#202023')(props)
+      bg: mode('#fff', '#202023')(props)
     }
   })
 }
