@@ -84,7 +84,7 @@ const searchButtonOnClick = (
 
   invoke('find_files_and_folders', {
     current_directory: currentDirectory,
-    search_in_directory: searchInDirectory.toLowerCase(),
+    search_in_directory: (searchInDirectory || '').toLowerCase(),
     include_hidden_folders: isIncludeHiddenFoldersChecked,
     include_file_extension: isIncludeFileExtensionChecked,
     searching_mode: searchingMode
