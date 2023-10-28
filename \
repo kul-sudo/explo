@@ -1,12 +1,14 @@
-import type { FC, KeyboardEvent, RefObject } from 'react'
+import type { ComponentType, FC, KeyboardEvent, RefObject } from 'react'
 import type {
   AddEventProps,
   FolderReferencesProps,
   LastTimeProps,
+  RowProps,
   SearchingModeValue,
   VolumesListProps
 } from '@/types/types'
 import type { path } from '@tauri-apps/api'
+import type { FixedSizeListProps } from 'react-window'
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
@@ -123,31 +125,55 @@ const fileOrFolderOnDoubleClick = (
   }
 }
 
+const Row: FC<RowProps> = ({ data, index, style, setCurrentDirectory }) => {
+  const fileOrFolder = data[index]
+
+  return (
+    <Tooltip label={fileOrFolder[2]} placement="top">
+      <Button
+        key={index}
+        width="15rem"
+        variant="outline"
+        onDoubleClick={() =>
+          fileOrFolderOnDoubleClick(fileOrFolder, setCurrentDirectory)
+        }
+        style={style}
+      >
+        <Box position="absolute" left="0.5rem">
+          <FileOrFolderItem fileOrFolder={fileOrFolder} />
+        </Box>
+        <Box position="absolute" right="0.5rem">
+          <Text
+            width="10rem"
+            whiteSpace="nowrap"
+            overflow="hidden"
+            textOverflow="ellipsis"
+            textAlign="right"
+            mr="0.3rem"
+          >
+            {fileOrFolder[1]}
+          </Text>
+        </Box>
+      </Button>
+    </Tooltip>
+  )
+}
+
 const Home: FC = () => {
+  const [apiPath, setApiPath] = useState<typeof path>()
+  const [readDirArray, setReadDirArray] = useAtom(readDirArrayAtom)
+  const [searchInDirectory, setSearchInDirectory] = useAtom(
+    searchingInDirectoryAtom
+  )
+  const [isSearching, setIsSearching] = useAtom(isSearchingAtom)
+  const [isLoading, setIsLoading] = useAtom(isLoadingAtom)
+
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] =
     useAtom(isIncludeHiddenFoldersCheckedAtom)
   const [isIncludeFileExtensionChecked, setIsIncludeFileExtensionChecked] =
     useAtom(isIncludeHiddenFoldersCheckedAtom)
   const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] =
     useAtom(isSortFromFoldersToFilesCheckedAtom)
-  const [apiPath, setApiPath] = useState<typeof path>()
-  const [readDirArray, setReadDirArray] = useAtom(readDirArrayAtom)
-
-  const readDirArrayMaybeSorted = isSortFromFoldersToFilesChecked
-    ? readDirArray.slice().sort((a, b) => {
-        if (a[0] && !b[0]) {
-          return -1
-        } else {
-          return 1
-        }
-      })
-    : readDirArray
-
-  const [searchInDirectory, setSearchInDirectory] = useAtom(
-    searchingInDirectoryAtom
-  )
-  const [isSearching, setIsSearching] = useAtom(isSearchingAtom)
-  const [isLoading, setIsLoading] = useAtom(isLoadingAtom)
 
   const [searchingMode, setSearchingMode] = useAtom(searchingModeAtom)
 
@@ -596,21 +622,11 @@ const Home: FC = () => {
           )}
 
           <Virtuoso
-            style={{ height: 750, width: '16rem' }}
+            style={{ height: 300, width: '50%' }}
             totalCount={readDirArray.length}
-            data={
-              isSortFromFoldersToFilesChecked
-                ? readDirArray.slice().sort((a, b) => {
-                    if (a[0] && !b[0]) {
-                      return -1
-                    } else {
-                      return 1
-                    }
-                  })
-                : readDirArray
-            }
             itemContent={index => {
-              const fileOrFolder = readDirArrayMaybeSorted[index]
+              const fileOrFolder = readDirArray[index]
+              console.log(fileOrFolder)
 
               return (
                 <Tooltip key={index} label={fileOrFolder[2]} placement="top">

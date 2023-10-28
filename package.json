@@ -17,7 +17,6 @@
     "@types/node": "^20.8.4",
     "@types/react": "latest",
     "@types/react-dom": "^18.2.12",
-    "@types/react-window": "^1.8.5",
     "eslint": "latest",
     "eslint-config-next": "latest",
     "framer-motion": "^10.16.1",
@@ -27,7 +26,7 @@
     "react": "latest",
     "react-dom": "latest",
     "react-icons": "latest",
-    "react-window": "latest",
+    "react-virtuoso": "^4.6.2",
     "typescript": "latest"
   },
   "devDependencies": {
