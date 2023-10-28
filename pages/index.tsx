@@ -7,7 +7,7 @@ import type {
   VolumesListProps
 } from '@/types/types'
 import type { path } from '@tauri-apps/api'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { useAtom } from 'jotai'
@@ -171,7 +171,7 @@ const Home: FC = () => {
     isRedoPossible: isCurrentDirectoryRedoPossible
   } = useUndoRedo(currentDirectoryAtom)
 
-  useEffect(() => {
+  const memorisedSetReadDirArray = useCallback(() => {
     const unlisten = listen('add', (event: { payload: AddEventProps }) => {
       setReadDirArray(prevValue => [...prevValue, event.payload])
     })
@@ -180,6 +180,8 @@ const Home: FC = () => {
       unlisten.then(remove => remove())
     }
   }, [setReadDirArray])
+
+  useEffect(memorisedSetReadDirArray, [memorisedSetReadDirArray])
 
   const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
@@ -559,6 +561,7 @@ const Home: FC = () => {
             <IconButton
               aria-label="Copy"
               icon={<CopyIcon />}
+              isDisabled={currentDirectory.length === 0}
               height="3rem"
               variant="outline"
               roundedRight="2xl"
