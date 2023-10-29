@@ -1,23 +1,5 @@
-import type { CSSProperties } from 'react'
-
-type FolderReferencesProps = {
-  name: 'Desktop' | 'User'
-  children?: {
-    name: 'Documents' | 'Downloads' | 'Pictures' | 'Music' | 'Videos'
-    directory: () => Promise<string>
-  }[]
-  directory: () => Promise<string>
-}[]
-
 // [isFolder, name, path, extension]
 type AddEventProps = [boolean, string, string, string]
-
-type RowProps = {
-  data: AddEventProps[]
-  index: number
-  style: CSSProperties
-  setCurrentDirectory: (newState: string) => void
-}
 
 type VolumesListProps = {
   is_removable: boolean
@@ -47,9 +29,7 @@ type LastTimeProps = {
 type SearchingModeValue = 0 | 1 | 2 | 3
 
 export type {
-  FolderReferencesProps,
   AddEventProps,
-  RowProps,
   VolumesListProps,
   UndoRedoObjectProps,
   ActionObjectProps,

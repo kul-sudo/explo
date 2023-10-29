@@ -19,8 +19,8 @@ const fonts: ThemeOverride['fonts'] = {
 }
 
 const config: ThemeOverride['config'] = {
-  initialColorMode: 'dark',
-  useSystemColorMode: false
+  initialColorMode: 'system',
+  useSystemColorMode: true
 }
 
 export default extendTheme({ styles, fonts, config })

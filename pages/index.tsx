@@ -1,8 +1,6 @@
-import type { FC, KeyboardEvent, RefObject } from 'react'
+import type { FC } from 'react'
 import type {
   AddEventProps,
-  FolderReferencesProps,
-  LastTimeProps,
   SearchingModeValue,
   VolumesListProps
 } from '@/types/types'
@@ -17,11 +15,16 @@ import {
   AlertIcon,
   Box,
   Button,
+  ButtonGroup,
   Checkbox,
   Divider,
   HStack,
   IconButton,
   Input,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
   Progress,
   Radio,
   RadioGroup,
@@ -30,16 +33,16 @@ import {
   Tooltip,
   VStack,
   useColorMode,
-  useColorModeValue,
   useToast
 } from '@chakra-ui/react'
 import {
   currentDirectoryAtom,
   isIncludeHiddenFoldersCheckedAtom,
+  isIncludeFileExtensionCheckedAtom,
+  isSortFromFoldersToFilesCheckedAtom,
   isLoadingAtom,
   isLoadingVolumesAtom,
   isSearchingAtom,
-  isSortFromFoldersToFilesCheckedAtom,
   lastTimeAtom,
   readDirArrayAtom,
   searchingInDirectoryAtom,
@@ -56,78 +59,16 @@ import {
   RotateCw,
   SunIcon
 } from 'lucide-react'
+import { Virtuoso } from 'react-virtuoso'
 import { exists } from '@tauri-apps/api/fs'
 import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
-import { Virtuoso } from 'react-virtuoso'
-
-const searchButtonOnClick = (
-  currentDirectory: string,
-  searchInDirectory: string,
-  isIncludeHiddenFoldersChecked: boolean,
-  isIncludeFileExtensionChecked: boolean,
-  searchingMode: SearchingModeValue,
-  setIsLoading: (newState: boolean) => void,
-  setIsSearching: (newState: boolean) => void,
-  setReadDirArray: (newState: AddEventProps[]) => void,
-  setLastTime: (newState: LastTimeProps) => void
-) => {
-  setIsLoading(true)
-  setIsSearching(true)
-  setReadDirArray([])
-
-  const lastTimeLaunched = Date.now()
-
-  invoke('find_files_and_folders', {
-    current_directory: currentDirectory,
-    search_in_directory: searchInDirectory.toLowerCase(),
-    include_hidden_folders: isIncludeHiddenFoldersChecked,
-    include_file_extension: isIncludeFileExtensionChecked,
-    searching_mode: searchingMode
-  }).then(() => {
-    setIsLoading(false)
-    setIsSearching(false)
-
-    setLastTime({
-      launched: lastTimeLaunched,
-      found: Date.now()
-    })
-  })
-}
-
-const directoryInputOnKeyDown = async (
-  event: KeyboardEvent<HTMLInputElement>,
-  directoryRef: RefObject<HTMLInputElement>,
-  currentDirectory: string,
-  setCurrentDirectory: (newState: string) => void
-) => {
-  if (event.key === 'Enter') {
-    if (directoryRef.current) {
-      if (directoryRef.current.value !== currentDirectory) {
-        if (await exists(directoryRef.current.value)) {
-          setCurrentDirectory(directoryRef.current.value)
-        }
-      }
-    }
-  }
-}
-
-const fileOrFolderOnDoubleClick = (
-  fileOrFolder: AddEventProps,
-  setCurrentDirectory: (newState: string) => void
-) => {
-  if (fileOrFolder[0]) {
-    setCurrentDirectory(fileOrFolder[2])
-  } else {
-    invoke('open_file_in_default_application', { fileName: fileOrFolder[2] })
-  }
-}
 
 const Home: FC = () => {
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] =
     useAtom(isIncludeHiddenFoldersCheckedAtom)
-  const [isIncludeFileExtensionChecked, setIsIncludeFileExtensionChecked] =
-    useAtom(isIncludeHiddenFoldersCheckedAtom)
+  const [isIncludeFileExtensionsChecked, setIsIncludeFileExtensionsChecked] =
+    useAtom(isIncludeFileExtensionCheckedAtom)
   const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] =
     useAtom(isSortFromFoldersToFilesCheckedAtom)
   const [apiPath, setApiPath] = useState<typeof path>()
@@ -245,7 +186,7 @@ const Home: FC = () => {
 
   const hidden = isSearching || currentDirectory.length === 0
 
-  const baseDirectories: Readonly<FolderReferencesProps> = [
+  const baseDirectories = Object.freeze([
     { name: 'Desktop', directory: apiPath?.desktopDir! },
     {
       name: 'User',
@@ -258,9 +199,9 @@ const Home: FC = () => {
         { name: 'Videos', directory: apiPath?.videoDir! }
       ]
     }
-  ]
+  ])
 
-  const { colorMode, toggleColorMode } = useColorMode()
+  const { colorMode, setColorMode } = useColorMode()
 
   return (
     <>
@@ -271,14 +212,17 @@ const Home: FC = () => {
           placeholder="Directory"
           width="10rem"
           variant="filled"
-          onKeyDown={event =>
-            directoryInputOnKeyDown(
-              event,
-              directoryRef,
-              currentDirectory,
-              setCurrentDirectory
-            )
-          }
+          onKeyDown={async event => {
+            if (event.key === 'Enter') {
+              if (directoryRef.current) {
+                if (directoryRef.current.value !== currentDirectory) {
+                  if (await exists(directoryRef.current.value)) {
+                    setCurrentDirectory(directoryRef.current.value)
+                  }
+                }
+              }
+            }
+          }}
         />
 
         <Input
@@ -303,10 +247,10 @@ const Home: FC = () => {
             isDisabled={hidden}
             defaultChecked={false}
             onChange={event =>
-              setIsIncludeFileExtensionChecked(event.target.checked)
+              setIsIncludeFileExtensionsChecked(event.target.checked)
             }
           >
-            Include file extension
+            Include file extensions
           </Checkbox>
           <Checkbox
             isDisabled={hidden}
@@ -353,17 +297,27 @@ const Home: FC = () => {
             }
 
             if (searchInDirectory.length > 0) {
-              searchButtonOnClick(
-                currentDirectory,
-                searchInDirectory,
-                isIncludeHiddenFoldersChecked,
-                isIncludeFileExtensionChecked,
-                searchingMode,
-                setIsLoading,
-                setIsSearching,
-                setReadDirArray,
-                setLastTime
-              )
+              setIsLoading(true)
+              setIsSearching(true)
+              setReadDirArray([])
+
+              const lastTimeLaunched = Date.now()
+
+              invoke('find_files_and_folders', {
+                current_directory: currentDirectory,
+                search_in_directory: searchInDirectory.toLowerCase(),
+                include_hidden_folders: isIncludeHiddenFoldersChecked,
+                include_file_extension: isIncludeFileExtensionsChecked,
+                searching_mode: searchingMode
+              }).then(() => {
+                setIsLoading(false)
+                setIsSearching(false)
+
+                setLastTime({
+                  launched: lastTimeLaunched,
+                  found: Date.now()
+                })
+              })
             } else {
               toast({
                 title: 'Error',
@@ -489,52 +443,93 @@ const Home: FC = () => {
 
         <VStack alignItems="start" position="relative" left="10rem">
           <HStack mt="1rem">
-            <IconButton
-              aria-label="Go back"
-              icon={<ArrowLeftIcon />}
-              isDisabled={isSearching || !isCurrentDirectoryUndoPossible}
-              rounded="full"
-              onClick={() => {
-                if (isCurrentDirectoryUndoPossible) {
-                  undoCurrentDirectory()
-                  setReadDirArray([])
-                }
-              }}
-            />
-            <IconButton
-              aria-label="Go forward"
-              icon={<ArrowRightIcon />}
-              isDisabled={isSearching || !isCurrentDirectoryRedoPossible}
-              rounded="full"
-              onClick={() => {
-                if (isCurrentDirectoryRedoPossible) {
-                  redoCurrentDirectory()
-                  setReadDirArray([])
-                }
-              }}
-            />
-            <IconButton
-              aria-label="Refresh"
-              icon={<RotateCw />}
-              isDisabled={hidden}
-              rounded="full"
-              variant="outline"
-              onClick={() => {
-                setIsLoading(true)
-                setReadDirArray([])
+            <ButtonGroup isAttached>
+              <Tooltip label="Go back">
+                <IconButton
+                  aria-label="Go back"
+                  icon={<ArrowLeftIcon />}
+                  isDisabled={isSearching || !isCurrentDirectoryUndoPossible}
+                  rounded="full"
+                  onClick={() => {
+                    if (isCurrentDirectoryUndoPossible) {
+                      undoCurrentDirectory()
+                      setReadDirArray([])
+                    }
+                  }}
+                />
+              </Tooltip>
+              <Tooltip label="Update">
+                <IconButton
+                  aria-label="Refresh"
+                  icon={<RotateCw />}
+                  isDisabled={hidden}
+                  rounded="full"
+                  onClick={() => {
+                    setIsLoading(true)
+                    setReadDirArray([])
 
-                invoke('read_directory', { directory: currentDirectory }).then(
-                  () => setIsLoading(false)
-                )
-              }}
-            />
-            <IconButton
-              aria-label="Switch theme"
-              colorScheme={useColorModeValue('teal', 'purple')}
-              icon={colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
-              rounded="full"
-              onClick={toggleColorMode}
-            />
+                    invoke('read_directory', {
+                      directory: currentDirectory
+                    }).then(() => setIsLoading(false))
+                  }}
+                />
+              </Tooltip>
+              <Tooltip label="Go forward">
+                <IconButton
+                  aria-label="Go forward"
+                  icon={<ArrowRightIcon />}
+                  isDisabled={isSearching || !isCurrentDirectoryRedoPossible}
+                  rounded="full"
+                  onClick={() => {
+                    if (isCurrentDirectoryRedoPossible) {
+                      redoCurrentDirectory()
+                      setReadDirArray([])
+                    }
+                  }}
+                />
+              </Tooltip>
+            </ButtonGroup>
+            <Menu isLazy>
+              <MenuButton
+                as={IconButton}
+                aria-label="Options"
+                colorScheme={colorMode === 'dark' ? 'purple' : 'teal'}
+                icon={colorMode === 'dark' ? <MoonIcon /> : <SunIcon />}
+                rounded="full"
+              />
+              <MenuList>
+                {Object.freeze(['dark', 'light', 'system']).map(colorMode => (
+                  <MenuItem
+                    key={colorMode}
+                    as={Button}
+                    colorScheme={
+                      colorMode === 'dark'
+                        ? 'purple'
+                        : colorMode === 'light'
+                        ? 'teal'
+                        : 'facebook'
+                    }
+                    rounded="none"
+                    icon={
+                      colorMode === 'dark' ? (
+                        <MoonIcon />
+                      ) : colorMode === 'light' ? (
+                        <SunIcon />
+                      ) : (
+                        <HStack>
+                          <MoonIcon />
+                          <Text fontSize="1rem">/</Text>
+                          <SunIcon />
+                        </HStack>
+                      )
+                    }
+                    onClick={() => setColorMode(colorMode)}
+                  >
+                    {colorMode.charAt(0).toUpperCase() + colorMode.slice(1)}
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Menu>
           </HStack>
 
           <HStack spacing="0rem">
@@ -620,12 +615,15 @@ const Home: FC = () => {
                   <Button
                     width="15rem"
                     variant="outline"
-                    onDoubleClick={() =>
-                      fileOrFolderOnDoubleClick(
-                        fileOrFolder,
-                        setCurrentDirectory
-                      )
-                    }
+                    onDoubleClick={() => {
+                      if (fileOrFolder[0]) {
+                        setCurrentDirectory(fileOrFolder[2])
+                      } else {
+                        invoke('open_file_in_default_application', {
+                          fileName: fileOrFolder[2]
+                        })
+                      }
+                    }}
                   >
                     <Box position="absolute" left="0.5rem">
                       <FileOrFolderItem fileOrFolder={fileOrFolder} />
