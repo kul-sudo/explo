@@ -4,7 +4,7 @@ import type {
   SearchingModeValue,
   VolumesListProps
 } from '@/types/types'
-import type { path } from '@tauri-apps/api'
+import type { path, window } from '@tauri-apps/api'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
@@ -16,23 +16,29 @@ import {
   Box,
   Button,
   ButtonGroup,
+  Center,
   Checkbox,
   Divider,
   HStack,
   IconButton,
   Input,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Progress,
   Radio,
   RadioGroup,
   Spinner,
+  Switch,
   Text,
   Tooltip,
   VStack,
   useColorMode,
+  useColorModeValue,
+  useDisclosure,
   useToast
 } from '@chakra-ui/react'
 import {
@@ -47,7 +53,8 @@ import {
   readDirArrayAtom,
   searchingInDirectoryAtom,
   searchingModeAtom,
-  volumesListAtom
+  volumesListAtom,
+  currentSettingsAtom
 } from '@/lib/atoms'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
@@ -55,8 +62,10 @@ import {
   ArrowRightIcon,
   CopyIcon,
   HardDriveIcon,
+  InfoIcon,
   MoonIcon,
   RotateCw,
+  SettingsIcon,
   SunIcon
 } from 'lucide-react'
 import { Virtuoso } from 'react-virtuoso'
@@ -65,15 +74,18 @@ import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
 
 const Home: FC = () => {
+  // Checkbox states
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] =
     useAtom(isIncludeHiddenFoldersCheckedAtom)
   const [isIncludeFileExtensionsChecked, setIsIncludeFileExtensionsChecked] =
     useAtom(isIncludeFileExtensionCheckedAtom)
   const [isSortFromFoldersToFilesChecked, setIsSortFromFoldersToFilesChecked] =
     useAtom(isSortFromFoldersToFilesCheckedAtom)
-  const [apiPath, setApiPath] = useState<typeof path>()
+
+  // The state of the array of files and folders shown to the user
   const [readDirArray, setReadDirArray] = useAtom(readDirArrayAtom)
 
+  // This variable stores the sorted version of 'readDirArray' when it needs to be sorted
   const readDirArrayMaybeSorted = isSortFromFoldersToFilesChecked
     ? readDirArray.slice().sort((a, b) => {
         if (a[0] && !b[0]) {
@@ -83,6 +95,8 @@ const Home: FC = () => {
         }
       })
     : readDirArray
+
+  const [currentSettings, setCurrentSettings] = useAtom(currentSettingsAtom)
 
   const [searchInDirectory, setSearchInDirectory] = useAtom(
     searchingInDirectoryAtom
@@ -95,12 +109,21 @@ const Home: FC = () => {
   const [lastTime, setLastTime] = useAtom(lastTimeAtom)
   const [isLoadingVolumes, setIsLoadingVolumes] = useAtom(isLoadingVolumesAtom)
 
-  const setupAppWindow = async () =>
+  const [apiPath, setApiPath] = useState<typeof path>()
+  const [apiWindow, setApiWindow] = useState<typeof window>()
+
+  const setupApi = async () => {
     setApiPath((await import('@tauri-apps/api')).path)
+    setApiWindow((await import('@tauri-apps/api')).window)
+  }
 
   useEffect(() => {
-    setupAppWindow()
+    setupApi()
   }, [])
+
+  useEffect(() => {
+    apiWindow?.appWindow.setFullscreen(currentSettings.Fullscreen)
+  }, [currentSettings.Fullscreen, apiWindow?.appWindow])
 
   const {
     state: currentDirectory,
@@ -112,6 +135,7 @@ const Home: FC = () => {
     isRedoPossible: isCurrentDirectoryRedoPossible
   } = useUndoRedo(currentDirectoryAtom)
 
+  // Preventing re-rendering
   const memorisedSetReadDirArray = useCallback(() => {
     const unlisten = listen('add', (event: { payload: AddEventProps }) => {
       setReadDirArray(prevValue => [...prevValue, event.payload])
@@ -126,6 +150,7 @@ const Home: FC = () => {
 
   const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
+  // Listening for the event that adds files and folders to the array shown to the user
   useEffect(() => {
     const unlisten = listen(
       'volumes',
@@ -199,9 +224,37 @@ const Home: FC = () => {
         { name: 'Videos', directory: apiPath?.videoDir! }
       ]
     }
-  ])
+  ] as const)
 
-  const { colorMode, setColorMode } = useColorMode()
+  const settings = Object.freeze([
+    [
+      'Show animations',
+      'Disabling all animations might improve the performance, but the improvement will most likely be very insignificant.'
+    ],
+    [
+      'Show theme options',
+      'The visibility of the theme options in the bottom right side can be controlled with this setting.'
+    ],
+    ['Fullscreen', 'This setting toggles the fullscreen mode.'],
+    [
+      'Show base directories',
+      'The visibility of the built-in directories in the side bar on the left-hand side can be toggled with this setting.'
+    ]
+  ] as const)
+
+  const { colorMode: currentColorMode, setColorMode } = useColorMode()
+
+  const themeIconButtonBackgroundColor = useColorModeValue('black', 'white')
+  const themeOptionsButtonBackgroundColor = useColorModeValue(
+    'blackAlpha.200',
+    'whiteAlpha.200'
+  )
+
+  const {
+    isOpen: isSettingsOpen,
+    onOpen: onSettingsOpen,
+    onClose: onSettingsClose
+  } = useDisclosure()
 
   return (
     <>
@@ -353,46 +406,51 @@ const Home: FC = () => {
           left="0"
           spacing="0.3rem"
         >
-          {baseDirectories.map(section => (
-            <>
-              <Button
-                _first={{
-                  marginTop: '0.5rem'
-                }}
-                key={section.name}
-                isDisabled={isSearching}
-                width="7rem"
-                rounded="2xl"
-                onClick={async () => {
-                  setCurrentDirectory(await section.directory())
-                }}
-              >
-                {section.name}
-              </Button>
+          {currentSettings['Show base directories'] && (
+            <VStack>
+              {baseDirectories.map(section => (
+                <>
+                  <Button
+                    _first={{
+                      marginTop: '0.5rem'
+                    }}
+                    key={section.name}
+                    isDisabled={isSearching}
+                    width="7rem"
+                    rounded="2xl"
+                    onClick={async () => {
+                      setCurrentDirectory(await section.directory())
+                    }}
+                  >
+                    {section.name}
+                  </Button>
 
-              <HStack ml="0.5rem">
-                <Divider orientation="vertical" />
-                <VStack>
-                  {section.children?.map(child => (
-                    <Button
-                      _first={{ marginTop: '0.2rem' }}
-                      _last={{ marginBottom: '0.4rem' }}
-                      key={child.name}
-                      isDisabled={isSearching}
-                      width="7rem"
-                      roundedLeft="3xl"
-                      roundedRight="xl"
-                      onClick={async () => {
-                        setCurrentDirectory(await child.directory())
-                      }}
-                    >
-                      {child.name}
-                    </Button>
-                  ))}
-                </VStack>
-              </HStack>
-            </>
-          ))}
+                  <HStack ml="0.5rem">
+                    <Divider orientation="vertical" />
+                    <VStack>
+                      {'children' in section &&
+                        section.children!.map(child => (
+                          <Button
+                            _first={{ marginTop: '0.2rem' }}
+                            _last={{ marginBottom: '0.4rem' }}
+                            key={child.name}
+                            isDisabled={isSearching}
+                            width="7rem"
+                            roundedLeft="3xl"
+                            roundedRight="xl"
+                            onClick={async () => {
+                              setCurrentDirectory(await child.directory())
+                            }}
+                          >
+                            {child.name}
+                          </Button>
+                        ))}
+                    </VStack>
+                  </HStack>
+                </>
+              ))}
+            </VStack>
+          )}
 
           {isLoadingVolumes && <Spinner />}
 
@@ -406,7 +464,7 @@ const Home: FC = () => {
               return -1
             })
             .map(volume => (
-              <VStack key={volume.mountpoint}>
+              <VStack key={volume.mountpoint} _first={{ marginTop: '0.5rem' }}>
                 <Tooltip
                   hasArrow
                   label={
@@ -489,47 +547,35 @@ const Home: FC = () => {
                 />
               </Tooltip>
             </ButtonGroup>
-            <Menu isLazy>
-              <MenuButton
-                as={IconButton}
-                aria-label="Options"
-                colorScheme={colorMode === 'dark' ? 'purple' : 'teal'}
-                icon={colorMode === 'dark' ? <MoonIcon /> : <SunIcon />}
-                rounded="full"
-              />
-              <MenuList>
-                {Object.freeze(['dark', 'light', 'system']).map(colorMode => (
-                  <MenuItem
-                    key={colorMode}
-                    as={Button}
-                    colorScheme={
-                      colorMode === 'dark'
-                        ? 'purple'
-                        : colorMode === 'light'
-                        ? 'teal'
-                        : 'facebook'
-                    }
-                    rounded="none"
-                    icon={
-                      colorMode === 'dark' ? (
-                        <MoonIcon />
-                      ) : colorMode === 'light' ? (
-                        <SunIcon />
-                      ) : (
-                        <HStack>
-                          <MoonIcon />
-                          <Text fontSize="1rem">/</Text>
-                          <SunIcon />
-                        </HStack>
-                      )
-                    }
-                    onClick={() => setColorMode(colorMode)}
-                  >
-                    {colorMode.charAt(0).toUpperCase() + colorMode.slice(1)}
-                  </MenuItem>
-                ))}
-              </MenuList>
-            </Menu>
+
+            <Modal isOpen={isSettingsOpen} onClose={onSettingsClose}>
+              <ModalOverlay backdropFilter="blur(5px)" />
+              <ModalContent pb="2">
+                <ModalHeader>Settings</ModalHeader>
+                <ModalCloseButton />
+                <ModalBody>
+                  <VStack spacing="2" alignItems="start">
+                    {settings.map(setting => (
+                      <HStack key={setting[0]}>
+                        <Switch
+                          isChecked={currentSettings[setting[0]]}
+                          onChange={event =>
+                            setCurrentSettings(prevValue => ({
+                              ...prevValue,
+                              [setting[0]]: event?.currentTarget.checked
+                            }))
+                          }
+                        />
+                        <Text fontWeight="semibold">{setting[0]}</Text>
+                        <Tooltip label={setting[1]}>
+                          <InfoIcon />
+                        </Tooltip>
+                      </HStack>
+                    ))}
+                  </VStack>
+                </ModalBody>
+              </ModalContent>
+            </Modal>
           </HStack>
 
           <HStack spacing="0rem">
@@ -646,6 +692,49 @@ const Home: FC = () => {
             }}
           />
         </VStack>
+      </HStack>
+
+      <HStack position="fixed" bottom="5" right="5">
+        {currentSettings['Show theme options'] && (
+          <ButtonGroup
+            spacing="1px"
+            backgroundColor={themeOptionsButtonBackgroundColor}
+            rounded="full"
+          >
+            {Object.freeze(['dark', 'light']).map(colorMode => (
+              <IconButton
+                aria-label="Set theme"
+                key={colorMode}
+                rounded="full"
+                variant="unstyled"
+                backgroundColor={
+                  colorMode === currentColorMode
+                    ? themeIconButtonBackgroundColor
+                    : 'transparent'
+                }
+                icon={
+                  colorMode === 'dark' ? (
+                    <Center>
+                      <MoonIcon color="black" />
+                    </Center>
+                  ) : (
+                    <Center>
+                      <SunIcon color="white" />
+                    </Center>
+                  )
+                }
+                onClick={() => setColorMode(colorMode)}
+              />
+            ))}
+          </ButtonGroup>
+        )}
+
+        <IconButton
+          aria-label="Settings"
+          rounded="full"
+          icon={<SettingsIcon />}
+          onClick={onSettingsOpen}
+        />
       </HStack>
     </>
   )

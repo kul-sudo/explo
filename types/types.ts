@@ -1,7 +1,7 @@
 // [isFolder, name, path, extension]
-type AddEventProps = [boolean, string, string, string]
+export type AddEventProps = [boolean, string, string, string]
 
-type VolumesListProps = {
+export type VolumesListProps = {
   is_removable: boolean
   kind: 'HDD' | 'SSD'
   mountpoint: string
@@ -10,29 +10,27 @@ type VolumesListProps = {
   total_gb: number
 }[]
 
-type UndoRedoObjectProps = {
+export type UndoRedoObjectProps = {
   past: string[]
   present: string
   future: string[]
 }
 
-type ActionObjectProps = {
+export type ActionObjectProps = {
   type: 0 | 1 | 2 | 3 | 4
   data?: string
 }
 
-type LastTimeProps = {
+export type LastTimeProps = {
   launched: number
   found: number
 }
 
-type SearchingModeValue = 0 | 1 | 2 | 3
+export type SearchingModeValue = 0 | 1 | 2 | 3
 
-export type {
-  AddEventProps,
-  VolumesListProps,
-  UndoRedoObjectProps,
-  ActionObjectProps,
-  LastTimeProps,
-  SearchingModeValue
+export type Settings = {
+  'Show animations': boolean
+  'Show theme options': boolean
+  Fullscreen: boolean
+  'Show base directories': boolean
 }

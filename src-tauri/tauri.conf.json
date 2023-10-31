@@ -18,6 +18,9 @@
       "fs": {
         "exists": true,
         "scope": ["**"]
+      },
+      "window": {
+        "setFullscreen": true
       }
     },
     "bundle": {
