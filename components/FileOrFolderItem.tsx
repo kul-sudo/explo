@@ -45,7 +45,7 @@ const iconsForExtensions = Object.freeze({
   mkv: <VideoIcon size={25} />,
   webm: <VideoIcon size={25} />,
   lockb: <BunIcon size={25} />
-})
+} as const)
 
 const FileOrFolderItem: FC<{ fileOrFolder: AddEventProps }> = ({
   fileOrFolder

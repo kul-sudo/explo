@@ -1,8 +1,8 @@
 import type { FC } from 'react'
 import type { AppProps } from 'next/app'
 import { ChakraProvider, extendTheme } from '@chakra-ui/react'
-import { currentSettingsAtom } from '@/lib/atoms'
 import { useAtom } from 'jotai'
+import { currentSettingsAtom } from '@/lib/atoms'
 import theme from '@/lib/theme'
 import '@/styles/globals.css'
 
@@ -12,14 +12,14 @@ const App: FC<AppProps> = ({ Component, pageProps }) => {
   return (
     <ChakraProvider
       theme={extendTheme(
-        currentSettings['Show animations']
-          ? theme
-          : {
+        currentSettings['Partially disable animations']
+          ? {
               ...theme,
               transition: {
                 property: 'none'
               }
             }
+          : theme
       )}
     >
       <Component {...pageProps} />

@@ -22,7 +22,7 @@ export const isSortFromFoldersToFilesCheckedAtom = atom<boolean>(true)
 
 const settings = constants.settings
 export const currentSettingsAtom = atomWithStorage<Settings>('settings', {
-  'Show animations': settings['Show animations'],
+  'Partially hide animations': settings['Partially hide animations'],
   'Show theme options': settings['Show theme options'],
   Fullscreen: settings.Fullscreen,
   'Show base directories': settings['Show base directories']

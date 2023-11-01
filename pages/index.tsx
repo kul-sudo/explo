@@ -2,6 +2,7 @@ import type { FC } from 'react'
 import type {
   AddEventProps,
   SearchingModeValue,
+  Settings,
   VolumesListProps
 } from '@/types/types'
 import type { path, window } from '@tauri-apps/api'
@@ -69,10 +70,11 @@ import {
   SettingsIcon,
   SunIcon
 } from 'lucide-react'
-import { Virtuoso } from 'react-virtuoso'
 import { exists } from '@tauri-apps/api/fs'
+import { Virtuoso } from 'react-virtuoso'
 import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
+import constants from '@/lib/consts'
 
 const Home: FC = () => {
   // Checkbox states
@@ -114,8 +116,10 @@ const Home: FC = () => {
   const [apiWindow, setApiWindow] = useState<typeof window>()
 
   const setupApi = async () => {
-    setApiPath((await import('@tauri-apps/api')).path)
-    setApiWindow((await import('@tauri-apps/api')).window)
+    const imported = await import('@tauri-apps/api')
+
+    setApiPath(imported.path)
+    setApiWindow(imported.window)
   }
 
   useEffect(() => {
@@ -229,8 +233,8 @@ const Home: FC = () => {
 
   const settings = Object.freeze([
     [
-      'Show animations',
-      'Disabling all animations might improve the performance, but the improvement will most likely be very insignificant.'
+      'Partially disable animations',
+      'Partially disabling the animations might improve the performance, but the improvement will most likely be very insignificant.'
     ],
     [
       'Show theme options',
@@ -431,7 +435,7 @@ const Home: FC = () => {
                     <Divider orientation="vertical" />
                     <VStack>
                       {'children' in section &&
-                        section.children!.map(child => (
+                        section.children.map(child => (
                           <Button
                             _first={{ marginTop: '0.2rem' }}
                             _last={{ marginBottom: '0.4rem' }}
@@ -644,17 +648,7 @@ const Home: FC = () => {
           <Virtuoso
             style={{ height: 750, width: '16rem' }}
             totalCount={readDirArray.length}
-            data={
-              isSortFromFoldersToFilesChecked
-                ? readDirArray.slice().sort((a, b) => {
-                    if (a[0] && !b[0]) {
-                      return -1
-                    } else {
-                      return 1
-                    }
-                  })
-                : readDirArray
-            }
+            data={readDirArrayMaybeSorted}
             itemContent={index => {
               const fileOrFolder = readDirArrayMaybeSorted[index]
 

@@ -1,3 +1,5 @@
+import constants from '@/lib/consts'
+
 // [isFolder, name, path, extension]
 export type AddEventProps = [boolean, string, string, string]
 
@@ -28,9 +30,4 @@ export type LastTimeProps = {
 
 export type SearchingModeValue = 0 | 1 | 2 | 3
 
-export type Settings = {
-  'Show animations': boolean
-  'Show theme options': boolean
-  Fullscreen: boolean
-  'Show base directories': boolean
-}
+export type Settings = typeof constants.settings
