@@ -11,16 +11,16 @@ const App: FC<AppProps> = ({ Component, pageProps }) => {
 
   return (
     <ChakraProvider
-      theme={
+      theme={extendTheme(
         currentSettings['Show animations']
-          ? extendTheme(theme)
-          : extendTheme({
+          ? theme
+          : {
               ...theme,
               transition: {
                 property: 'none'
               }
-            })
-      }
+            }
+      )}
     >
       <Component {...pageProps} />
     </ChakraProvider>

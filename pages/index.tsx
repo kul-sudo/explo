@@ -65,6 +65,7 @@ import {
   InfoIcon,
   MoonIcon,
   RotateCw,
+  SearchIcon,
   SettingsIcon,
   SunIcon
 } from 'lucide-react'
@@ -271,6 +272,14 @@ const Home: FC = () => {
                 if (directoryRef.current.value !== currentDirectory) {
                   if (await exists(directoryRef.current.value)) {
                     setCurrentDirectory(directoryRef.current.value)
+                  } else {
+                    toast({
+                      title: 'Error',
+                      description: 'The directory is invalid.',
+                      status: 'error',
+                      duration: 9000,
+                      isClosable: true
+                    })
                   }
                 }
               }
@@ -330,7 +339,9 @@ const Home: FC = () => {
           </VStack>
         </RadioGroup>
 
-        <Button
+        <IconButton
+          aria-label="Search"
+          icon={<SearchIcon />}
           isDisabled={hidden}
           onClick={() => {
             if (searchingMode === 2) {
@@ -381,9 +392,7 @@ const Home: FC = () => {
               })
             }
           }}
-        >
-          Search
-        </Button>
+        />
 
         {isSearching && (
           <Button
@@ -397,15 +406,8 @@ const Home: FC = () => {
         )}
       </VStack>
 
-      <HStack>
-        <VStack
-          px="0.5rem"
-          height="100vh"
-          position="fixed"
-          top="0"
-          left="0"
-          spacing="0.3rem"
-        >
+      <HStack position="fixed" top="0" left="0" alignItems="start">
+        <VStack px="0.5rem" height="100vh" spacing="0.3rem">
           {currentSettings['Show base directories'] && (
             <VStack>
               {baseDirectories.map(section => (
@@ -499,7 +501,7 @@ const Home: FC = () => {
             ))}
         </VStack>
 
-        <VStack alignItems="start" position="relative" left="10rem">
+        <VStack alignItems="start">
           <HStack mt="1rem">
             <ButtonGroup isAttached>
               <Tooltip label="Go back">
@@ -731,8 +733,8 @@ const Home: FC = () => {
 
         <IconButton
           aria-label="Settings"
-          rounded="full"
           icon={<SettingsIcon />}
+          rounded="full"
           onClick={onSettingsOpen}
         />
       </HStack>
