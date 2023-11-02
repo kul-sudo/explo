@@ -17,6 +17,11 @@ const App: FC<AppProps> = ({ Component, pageProps }) => {
               ...theme,
               transition: {
                 property: 'none'
+              },
+              config: {
+                initialColorMode: 'dark',
+                useSystemColorMode: false,
+                disableTransitionOnChange: true
               }
             }
           : theme

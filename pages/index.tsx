@@ -87,14 +87,19 @@ const WordWhenSearching: FC = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       memorisedSetWord()
-    }, 2000)
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [memorisedSetWord])
 
   return (
     <Text
-      backgroundColor={`#${Math.floor(Math.random() * 16777215).toString(16)}`}
+      fontWeight="bold"
+      p="1"
+      rounded="lg"
+      backgroundColor={`#${(0x1000000 + ~~(Math.random() * 0x1000000))
+        .toString(16)
+        .substring(1)}`}
     >
       {word}
     </Text>
@@ -639,30 +644,31 @@ const Home: FC = () => {
             />
           </HStack>
 
-          {isLoading && readDirArray.length > 0 && <Spinner />}
+          <HStack>
+            {isLoading && readDirArray.length > 0 && <Spinner />}
 
-          {currentDirectory.length > 0 && (
-            <Text>
-              <Text display="inline" fontWeight="bold">
-                {readDirArray.length}
-              </Text>
-              <Text display="inline"> found in</Text>
-              <Text display="inline" fontWeight="bold">
-                {' '}
+            {currentDirectory.length > 0 && (
+              <>
                 {isSearching ? (
                   <WordWhenSearching />
                 ) : (
-                  (lastTime.found - lastTime.launched) / 1000
+                  <HStack spacing="0.2em">
+                    <Text fontWeight="bold">{readDirArray.length}</Text>
+                    <Text> found in</Text>
+                    <Text fontWeight="bold">
+                      {(lastTime.found - lastTime.launched) / 1000}
+                    </Text>
+                    <Text fontWeight="bold"> seconds</Text>
+                  </HStack>
                 )}
-              </Text>
-              {!isSearching && <Text display="inline"> seconds</Text>}
-            </Text>
-          )}
+              </>
+            )}
+          </HStack>
 
           <Virtuoso
             style={{ height: 750, width: '16rem' }}
-            totalCount={readDirArray.length}
             data={readDirArrayMaybeSorted}
+            totalCount={readDirArray.length}
             itemContent={index => {
               const fileOrFolder = readDirArrayMaybeSorted[index]
 

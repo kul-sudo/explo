@@ -184,7 +184,6 @@ async fn find_files_and_folders(
 ) {
     // Recursively reading the dir
     for entry in WalkDir::new(&current_directory)
-        .follow_links(true)
         .into_iter()
         .filter_map(|entry: Result<DirEntry, Error>| entry.ok())
     {

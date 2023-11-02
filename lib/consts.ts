@@ -22,8 +22,10 @@ export const settings = Object.freeze({
 
 export const wordsWhenSearching = Object.freeze([
   'searching',
-  "you'll find out soon",
+  'just a moment',
+  "you'll see it soon",
   "we're getting closer",
-  'just a bit left',
-  "we'll do it"
+  "we'll do it",
+  "we're almost too close",
+  "we're super close"
 ] as const)
