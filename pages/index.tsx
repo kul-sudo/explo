@@ -2,7 +2,6 @@ import type { FC } from 'react'
 import type {
   AddEventProps,
   SearchingModeValue,
-  Settings,
   VolumesListProps
 } from '@/types/types'
 import type { path, window } from '@tauri-apps/api'
@@ -72,9 +71,35 @@ import {
 } from 'lucide-react'
 import { exists } from '@tauri-apps/api/fs'
 import { Virtuoso } from 'react-virtuoso'
+import { wordsWhenSearching } from '@/lib/consts'
 import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
-import constants from '@/lib/consts'
+
+const WordWhenSearching: FC = () => {
+  const [word, setWord] = useState<string>(
+    wordsWhenSearching[~~(Math.random() * wordsWhenSearching.length)]
+  )
+
+  const memorisedSetWord = useCallback(() => {
+    setWord(wordsWhenSearching[~~(Math.random() * wordsWhenSearching.length)])
+  }, [])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      memorisedSetWord()
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [memorisedSetWord])
+
+  return (
+    <Text
+      backgroundColor={`#${Math.floor(Math.random() * 16777215).toString(16)}`}
+    >
+      {word}
+    </Text>
+  )
+}
 
 const Home: FC = () => {
   // Checkbox states
@@ -127,7 +152,7 @@ const Home: FC = () => {
   }, [])
 
   useEffect(() => {
-    apiWindow?.appWindow.setFullscreen(currentSettings.Fullscreen)
+    apiWindow?.appWindow.setFullscreen(currentSettings.Fullscreen.isChecked)
   }, [currentSettings.Fullscreen, apiWindow?.appWindow])
 
   const {
@@ -229,22 +254,6 @@ const Home: FC = () => {
         { name: 'Videos', directory: apiPath?.videoDir! }
       ]
     }
-  ] as const)
-
-  const settings = Object.freeze([
-    [
-      'Partially disable animations',
-      'Partially disabling the animations might improve the performance, but the improvement will most likely be very insignificant.'
-    ],
-    [
-      'Show theme options',
-      'The visibility of the theme options in the bottom right side can be controlled with this setting.'
-    ],
-    ['Fullscreen', 'This setting toggles the fullscreen mode.'],
-    [
-      'Show base directories',
-      'The visibility of the built-in directories in the side bar on the left-hand side can be toggled with this setting.'
-    ]
   ] as const)
 
   const { colorMode: currentColorMode, setColorMode } = useColorMode()
@@ -412,7 +421,7 @@ const Home: FC = () => {
 
       <HStack position="fixed" top="0" left="0" alignItems="start">
         <VStack px="0.5rem" height="100vh" spacing="0.3rem">
-          {currentSettings['Show base directories'] && (
+          {currentSettings['Show base directories'].isChecked && (
             <VStack>
               {baseDirectories.map(section => (
                 <>
@@ -561,19 +570,22 @@ const Home: FC = () => {
                 <ModalCloseButton />
                 <ModalBody>
                   <VStack spacing="2" alignItems="start">
-                    {settings.map(setting => (
+                    {Object.entries(currentSettings).map(setting => (
                       <HStack key={setting[0]}>
                         <Switch
-                          isChecked={currentSettings[setting[0]]}
+                          isChecked={setting[1].isChecked}
                           onChange={event =>
                             setCurrentSettings(prevValue => ({
                               ...prevValue,
-                              [setting[0]]: event?.currentTarget.checked
+                              [setting[0]]: {
+                                isChecked: event?.currentTarget.checked,
+                                description: setting[1].description
+                              }
                             }))
                           }
                         />
                         <Text fontWeight="semibold">{setting[0]}</Text>
-                        <Tooltip label={setting[1]}>
+                        <Tooltip label={setting[1].description}>
                           <InfoIcon />
                         </Tooltip>
                       </HStack>
@@ -637,9 +649,11 @@ const Home: FC = () => {
               <Text display="inline"> found in</Text>
               <Text display="inline" fontWeight="bold">
                 {' '}
-                {isSearching
-                  ? '*searching*'
-                  : (lastTime.found - lastTime.launched) / 1000}
+                {isSearching ? (
+                  <WordWhenSearching />
+                ) : (
+                  (lastTime.found - lastTime.launched) / 1000
+                )}
               </Text>
               {!isSearching && <Text display="inline"> seconds</Text>}
             </Text>
@@ -691,7 +705,7 @@ const Home: FC = () => {
       </HStack>
 
       <HStack position="fixed" bottom="5" right="5">
-        {currentSettings['Show theme options'] && (
+        {currentSettings['Show theme options'].isChecked && (
           <ButtonGroup
             spacing="1px"
             backgroundColor={themeOptionsButtonBackgroundColor}
@@ -719,7 +733,9 @@ const Home: FC = () => {
                     </Center>
                   )
                 }
-                onClick={() => setColorMode(colorMode)}
+                onClick={() => {
+                  if (colorMode !== currentColorMode) setColorMode(colorMode)
+                }}
               />
             ))}
           </ButtonGroup>

@@ -12,7 +12,7 @@ const App: FC<AppProps> = ({ Component, pageProps }) => {
   return (
     <ChakraProvider
       theme={extendTheme(
-        currentSettings['Partially disable animations']
+        currentSettings['Partially disable animations'].isChecked
           ? {
               ...theme,
               transition: {
