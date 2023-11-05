@@ -244,7 +244,7 @@ async fn main() {
 
                     let current_volumes: HashSet<Volume> = get_volumes();
 
-                    if !only_mountpoints!(volumes).eq(&only_mountpoints!(current_volumes)) {
+                    if only_mountpoints!(volumes).ne(&only_mountpoints!(current_volumes)) {
                         let difference = volumes
                             .difference(&current_volumes)
                             .cloned()
