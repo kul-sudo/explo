@@ -14,20 +14,20 @@ lto = true
 opt-level = 3
 
 [build-dependencies]
-tauri-build = { version = "1.4.0", features = [] }
+tauri-build = { version = "1.5.0", features = [] }
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.4.0", features = [ "shell-open", "window-set-fullscreen", "fs-exists", "path-all"] }
-tokio = { version = "1.32.0", features = ["full"] }
+serde = { version = "1.0.192", features = ["derive"] }
+tauri = { version = "1.5.2", features = [ "shell-open", "window-set-fullscreen", "fs-exists", "path-all"] }
+tokio = { version = "1.34.0", features = ["full"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
-open = "1.7.0"
-walkdir = "2"
-lazy_static = "1.4.0"
-sysinfo = "0.29.10"
 regex = "1.9.5"
-globmatch = "0.2.5"
+walkdir = "2.4.0"
 trash = "3.1.2"
+globmatch = "0.3.0"
+sysinfo = "0.29.10"
+lazy_static = "1.4.0"
+open = "5.0.0"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
