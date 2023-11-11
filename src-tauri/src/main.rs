@@ -20,6 +20,7 @@ use tokio::{
     time::{interval, Interval},
 };
 use walkdir::{DirEntry, Error, WalkDir};
+use trash::delete;
 
 lazy_static! {
     static ref STOP_FINDING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
@@ -148,6 +149,13 @@ async fn open_file_in_default_application(file_name: String) {
     let _ = open::that(file_name);
 }
 
+#[tauri::command(async, rename_all = "snake_case")]
+async fn delete_entry(entry_paths: Vec<String>) {
+    for entry_path in entry_paths {
+        let _ = delete(entry_path);
+    }
+}
+
 #[tauri::command(async)]
 async fn read_directory(app_handle: AppHandle, directory: String) {
     // Reading the top layer of the dir
@@ -263,7 +271,8 @@ async fn main() {
             find_files_and_folders,
             read_directory,
             stop_finding,
-            get_volumes
+            get_volumes,
+            delete_entry
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

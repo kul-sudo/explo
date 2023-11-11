@@ -867,6 +867,7 @@ const Home: FC = () => {
                 <Tooltip label="Paste" placement="right">
                   <IconButton
                     aria-label="Paste"
+                    isDisabled={noEntrySelected}
                     icon={<ArrowBigDownDashIcon />}
                     colorScheme="green"
                   />
@@ -877,6 +878,16 @@ const Home: FC = () => {
                     aria-label="Delete"
                     icon={<Trash2Icon />}
                     colorScheme="red"
+                    onClick={() => {
+                      setReadDirArray(
+                        readDirArray.filter(
+                          entry => !selectedEntries.includes(entry[2])
+                        )
+                      )
+
+                      setSelectedEntries([])
+                      invoke('delete_entry', { entry_paths: selectedEntries })
+                    }}
                   />
                 </Tooltip>
               </ButtonGroup>
