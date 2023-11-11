@@ -57,19 +57,19 @@ import {
   volumesListAtom,
   currentSettingsAtom,
   searchingStoppedAtom,
-  selectedEntriesAtom
+  selectedEntriesAtom,
+  copiedEntriesAtom,
+  showCopyAtom
 } from '@/lib/atoms'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
   ArrowBigDownDashIcon,
-  ArrowBigUpDash,
   ArrowLeftIcon,
   ArrowRightIcon,
-  ArrowUpDownIcon,
   CheckCheckIcon,
   Copy,
   CopyIcon,
-  DeleteIcon,
+  CopyXIcon,
   HardDriveIcon,
   InfoIcon,
   MoonIcon,
@@ -133,7 +133,7 @@ const Home: FC = () => {
   // This variable stores the sorted version of 'readDirArray' when it needs to be sorted
   const readDirArrayMaybeSorted = isSortFromFoldersToFilesChecked
     ? readDirArray.slice().sort((a, b) => {
-        if (a[0] && !b[0]) {
+        if (a.is_folder && !b.is_folder) {
           return -1
         } else {
           return 1
@@ -198,9 +198,10 @@ const Home: FC = () => {
 
   const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
+  const [showCopy, setShowCopy] = useAtom(showCopyAtom)
   const [searchingStopped, setSearchingStopped] = useAtom(searchingStoppedAtom)
-
   const [selectedEntries, setSelectedEntries] = useAtom(selectedEntriesAtom)
+  const [copiedEntries, setCopiedEntries] = useAtom(copiedEntriesAtom)
 
   // Listening for the event that adds files and folders to the array shown to the user
   useEffect(() => {
@@ -752,16 +753,20 @@ const Home: FC = () => {
                 const fileOrFolder = readDirArrayMaybeSorted[index]
 
                 return (
-                  <Tooltip key={index} label={fileOrFolder[2]} placement="top">
+                  <Tooltip
+                    key={index}
+                    label={fileOrFolder.path}
+                    placement="top"
+                  >
                     <Button
                       width="15rem"
                       variant="outline"
                       onDoubleClick={() => {
-                        if (fileOrFolder[0]) {
-                          setCurrentDirectory(fileOrFolder[2])
+                        if (fileOrFolder.is_folder) {
+                          setCurrentDirectory(fileOrFolder.path)
                         } else {
                           invoke('open_file_in_default_application', {
-                            fileName: fileOrFolder[2]
+                            fileName: fileOrFolder.path
                           })
                         }
                       }}
@@ -779,21 +784,23 @@ const Home: FC = () => {
                           textAlign="right"
                           mr="0.3rem"
                         >
-                          {fileOrFolder[1]}
+                          {fileOrFolder.name}
                         </Text>
 
                         <Checkbox
-                          isChecked={selectedEntries.includes(fileOrFolder[2])}
+                          isChecked={selectedEntries.includes(
+                            fileOrFolder.path
+                          )}
                           onChange={event => {
                             if (event.target.checked) {
                               setSelectedEntries(prevValue => [
                                 ...prevValue,
-                                fileOrFolder[2]
+                                fileOrFolder.path
                               ])
                             } else {
                               setSelectedEntries(
                                 selectedEntries.filter(
-                                  item => item !== fileOrFolder[2]
+                                  item => item !== fileOrFolder.path
                                 )
                               )
                             }
@@ -817,12 +824,7 @@ const Home: FC = () => {
                     onClick={() => {
                       setSelectedEntries([])
 
-                      readDirArray.forEach(entry => {
-                        setSelectedEntries(prevValue => [
-                          ...prevValue,
-                          entry[2]
-                        ])
-                      })
+                      setSelectedEntries(readDirArray.map(({ path }) => path))
                     }}
                   />
                 </Tooltip>
@@ -845,16 +847,37 @@ const Home: FC = () => {
                 pt="2"
                 isAttached
                 orientation="vertical"
-                variant="outline"
                 isDisabled={noEntrySelected}
               >
-                <Tooltip label="Copy" placement="right">
-                  <IconButton
-                    aria-label="Copy"
-                    icon={<Copy />}
-                    colorScheme="blue"
-                  />
-                </Tooltip>
+                {showCopy ? (
+                  <Tooltip label="Copy" placement="right">
+                    <IconButton
+                      aria-label="Copy"
+                      icon={<Copy />}
+                      colorScheme="blue"
+                      onClick={() => {
+                        setShowCopy(false)
+                        setCopiedEntries(selectedEntries)
+                      }}
+                    />
+                  </Tooltip>
+                ) : (
+                  <Tooltip
+                    label="Uncopy all copied files/folders"
+                    placement="right"
+                  >
+                    <IconButton
+                      aria-label="Uncopy"
+                      icon={<CopyXIcon />}
+                      colorScheme="blue"
+                      isDisabled={false}
+                      onClick={() => {
+                        setShowCopy(true)
+                        setCopiedEntries([])
+                      }}
+                    />
+                  </Tooltip>
+                )}
 
                 <Tooltip label="Move" placement="right">
                   <IconButton
@@ -867,7 +890,7 @@ const Home: FC = () => {
                 <Tooltip label="Paste" placement="right">
                   <IconButton
                     aria-label="Paste"
-                    isDisabled={noEntrySelected}
+                    isDisabled={copiedEntries.length === 0}
                     icon={<ArrowBigDownDashIcon />}
                     colorScheme="green"
                   />
@@ -881,12 +904,14 @@ const Home: FC = () => {
                     onClick={() => {
                       setReadDirArray(
                         readDirArray.filter(
-                          entry => !selectedEntries.includes(entry[2])
+                          entry => !selectedEntries.includes(entry.path)
                         )
                       )
 
                       setSelectedEntries([])
-                      invoke('delete_entry', { entry_paths: selectedEntries })
+                      setCopiedEntries([])
+
+                      invoke('delete_entry', { entryPaths: selectedEntries })
                     }}
                   />
                 </Tooltip>

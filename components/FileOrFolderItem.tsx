@@ -50,12 +50,12 @@ const iconsForExtensions = Object.freeze({
 const FileOrFolderItem: FC<{ fileOrFolder: AddEventProps }> = ({
   fileOrFolder
 }) => {
-  return fileOrFolder[0] ? (
+  return fileOrFolder.is_folder ? (
     <FolderIcon />
   ) : (
-    iconsForExtensions[fileOrFolder[3] as keyof typeof iconsForExtensions] || (
-      <FileIcon />
-    )
+    iconsForExtensions[
+      fileOrFolder.extension as keyof typeof iconsForExtensions
+    ] || <FileIcon />
   )
 }
 

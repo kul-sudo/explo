@@ -5,22 +5,21 @@ use globmatch::is_hidden_path;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Serialize;
-use serde_json::Value;
 use std::{
-    collections::HashSet,
     fs::read_dir,
-    path::{Path, PathBuf},
+    collections::HashSet,
+    path::PathBuf,
     sync::Arc,
     time::Duration,
 };
 use sysinfo::{Disk, DiskExt, System, SystemExt};
 use tauri::{AppHandle, Manager};
 use tokio::{
+    time::interval,
     sync::Mutex,
-    time::{interval, Interval},
 };
-use walkdir::{DirEntry, Error, WalkDir};
 use trash::delete;
+use walkdir::WalkDir;
 
 lazy_static! {
     static ref STOP_FINDING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
@@ -42,17 +41,25 @@ struct Volume {
     total_gb: u16,
 }
 
+#[derive(Serialize, Clone)]
+struct Emit {
+    is_folder: bool,
+    name: String,
+    path: String,
+    extension: String,
+}
+
 fn from_volume(disk: &Disk) -> Volume {
-    let used_bytes: u64 = disk.total_space() - disk.available_space();
-    let available_gb: u16 = bytes_to_gb!(disk.available_space());
-    let used_gb: u16 = bytes_to_gb!(used_bytes);
-    let total_gb: u16 = bytes_to_gb!(disk.total_space());
+    let used_bytes = disk.total_space() - disk.available_space();
+    let available_gb = bytes_to_gb!(disk.available_space());
+    let used_gb = bytes_to_gb!(used_bytes);
+    let total_gb = bytes_to_gb!(disk.total_space());
 
-    let mountpoint: PathBuf = disk.mount_point().to_path_buf();
-    let kind: String = format!("{:?}", disk.kind());
-    let is_removable: bool = disk.is_removable();
+    let mountpoint = disk.mount_point().to_path_buf();
+    let kind = format!("{:?}", disk.kind());
+    let is_removable = disk.is_removable();
 
-    Volume {
+    return Volume {
         is_removable,
         kind,
         mountpoint,
@@ -64,7 +71,7 @@ fn from_volume(disk: &Disk) -> Volume {
 
 #[tauri::command(async)]
 fn get_volumes() -> HashSet<Volume> {
-    let mut sys: System = System::new_all();
+    let mut sys = System::new_all();
 
     sys.refresh_all();
 
@@ -149,7 +156,7 @@ async fn open_file_in_default_application(file_name: String) {
     let _ = open::that(file_name);
 }
 
-#[tauri::command(async, rename_all = "snake_case")]
+#[tauri::command(async)]
 async fn delete_entry(entry_paths: Vec<String>) {
     for entry_path in entry_paths {
         let _ = delete(entry_path);
@@ -160,23 +167,22 @@ async fn delete_entry(entry_paths: Vec<String>) {
 async fn read_directory(app_handle: AppHandle, directory: String) {
     // Reading the top layer of the dir
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
-        let entry_path: PathBuf = entry.path();
+        let entry_path = entry.path();
 
         // [isFolder, name, path, extension]
         let _ = app_handle.emit_all(
             "add",
-            (
-                Value::Bool(entry_path.is_dir()),
-                Value::String(entry.file_name().to_string_lossy().to_string()),
-                Value::String(entry_path.to_string_lossy().to_string()),
-                Value::String(
-                    entry_path
-                        .extension()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
-                ),
-            ),
+            Emit {
+                is_folder: entry_path.is_dir(),
+                name: entry.file_name().to_string_lossy().to_string(),
+                path: entry_path.to_string_lossy().to_string(),
+                extension: entry
+                    .path()
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+            },
         );
     }
 }
@@ -193,7 +199,7 @@ async fn find_files_and_folders(
     // Recursively reading the dir
     for entry in WalkDir::new(&current_directory)
         .into_iter()
-        .filter_map(|entry: Result<DirEntry, Error>| entry.ok())
+        .filter_map(|entry| entry.ok())
     {
         // When searching is supposed to be stopped, the variable gets set to true, so we need
         // to set its value back to true and quit the function by returning
@@ -202,8 +208,8 @@ async fn find_files_and_folders(
             return;
         }
 
-        let entry_path: &Path = entry.path();
-        let entry_filename: &str = entry.file_name().to_str().unwrap();
+        let entry_path = entry.path();
+        let entry_filename = entry.file_name().to_str().unwrap();
 
         if (include_hidden_folders || !is_hidden_path(entry_path))
             && current_directory != entry_path.to_string_lossy()
@@ -217,22 +223,19 @@ async fn find_files_and_folders(
                 searching_mode
             )
         {
-            // [isFolder, name, path, extension]
             let _ = app_handle.emit_all(
                 "add",
-                (
-                    Value::Bool(entry_path.is_dir()),
-                    Value::String(entry_filename.to_string()),
-                    Value::String(entry_path.to_string_lossy().to_string()),
-                    Value::String(
-                        entry
-                            .path()
-                            .extension()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .to_string(),
-                    ),
-                ),
+                Emit {
+                    is_folder: entry_path.is_dir(),
+                    name: entry_filename.to_string(),
+                    path: entry_path.to_string_lossy().to_string(),
+                    extension: entry
+                        .path()
+                        .extension()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string(),
+                },
             );
         }
     }
@@ -244,13 +247,13 @@ async fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .on_page_load(|webview, _payload| {
             tokio::spawn(async move {
-                let mut interval: Interval = interval(Duration::from_secs(1));
-                let mut volumes: HashSet<Volume> = get_volumes();
+                let mut interval = interval(Duration::from_secs(1));
+                let mut volumes = get_volumes();
 
                 loop {
                     interval.tick().await;
 
-                    let current_volumes: HashSet<Volume> = get_volumes();
+                    let current_volumes = get_volumes();
 
                     if only_mountpoints!(volumes).ne(&only_mountpoints!(current_volumes)) {
                         let difference = volumes

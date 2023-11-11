@@ -18,10 +18,12 @@ export const isLoadingAtom = atom<boolean>(false)
 export const isIncludeHiddenFoldersCheckedAtom = atom<boolean>(false)
 export const isIncludeFileExtensionCheckedAtom = atom<boolean>(false)
 export const isSortFromFoldersToFilesCheckedAtom = atom<boolean>(true)
+export const showCopyAtom = atom<boolean>(true)
 
 export const currentSettingsAtom = atomWithStorage('settings', settings)
 export const searchingStoppedAtom = atom<boolean>(false)
 export const selectedEntriesAtom = atom<string[]>([])
+export const copiedEntriesAtom = atom<string[]>([])
 
 export const searchingModeAtom = atom<SearchingModeValue>(0)
 export const isLoadingVolumesAtom = atom<boolean>(true)

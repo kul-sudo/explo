@@ -1,5 +1,9 @@
-// [isFolder, name, path, extension]
-export type AddEventProps = [boolean, string, string, string]
+export type AddEventProps = {
+  is_folder: boolean
+  name: string
+  path: string
+  extension: string
+}
 
 export type VolumesListProps = {
   is_removable: boolean
