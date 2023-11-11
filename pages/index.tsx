@@ -4,7 +4,7 @@ import type {
   SearchingModeValue,
   VolumesListProps
 } from '@/types/types'
-import type { path, window } from '@tauri-apps/api'
+import { path, window } from '@tauri-apps/api'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
@@ -22,6 +22,7 @@ import {
   HStack,
   IconButton,
   Input,
+  Link,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -54,22 +55,34 @@ import {
   searchingInDirectoryAtom,
   searchingModeAtom,
   volumesListAtom,
-  currentSettingsAtom
+  currentSettingsAtom,
+  searchingStoppedAtom,
+  selectedEntriesAtom
 } from '@/lib/atoms'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
+  ArrowBigDownDashIcon,
+  ArrowBigUpDash,
   ArrowLeftIcon,
   ArrowRightIcon,
+  ArrowUpDownIcon,
+  CheckCheckIcon,
+  Copy,
   CopyIcon,
+  DeleteIcon,
   HardDriveIcon,
   InfoIcon,
   MoonIcon,
+  MoveRightIcon,
   RotateCw,
   SearchIcon,
   SettingsIcon,
-  SunIcon
+  SunIcon,
+  Trash2Icon,
+  XIcon
 } from 'lucide-react'
 import { exists } from '@tauri-apps/api/fs'
+import { open } from '@tauri-apps/api/shell'
 import { Virtuoso } from 'react-virtuoso'
 import { wordsWhenSearching } from '@/lib/consts'
 import useUndoRedo from '@/lib/useUndoRedo'
@@ -94,7 +107,6 @@ const WordWhenSearching: FC = () => {
 
   return (
     <Text
-      fontWeight="bold"
       p="1"
       rounded="lg"
       backgroundColor={`#${(0x1000000 + ~~(Math.random() * 0x1000000))
@@ -134,6 +146,7 @@ const Home: FC = () => {
   const [searchInDirectory, setSearchInDirectory] = useAtom(
     searchingInDirectoryAtom
   )
+
   const [isSearching, setIsSearching] = useAtom(isSearchingAtom)
   const [isLoading, setIsLoading] = useAtom(isLoadingAtom)
 
@@ -185,6 +198,10 @@ const Home: FC = () => {
 
   const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
+  const [searchingStopped, setSearchingStopped] = useAtom(searchingStoppedAtom)
+
+  const [selectedEntries, setSelectedEntries] = useAtom(selectedEntriesAtom)
+
   // Listening for the event that adds files and folders to the array shown to the user
   useEffect(() => {
     const unlisten = listen(
@@ -218,6 +235,7 @@ const Home: FC = () => {
   useEffect(() => {
     setIsLoading(true)
     setReadDirArray([])
+    setSelectedEntries([])
 
     const lastTimeLaunched = Date.now()
 
@@ -231,7 +249,13 @@ const Home: FC = () => {
         })
       })
     }
-  }, [currentDirectory, setIsLoading, setLastTime, setReadDirArray])
+  }, [
+    currentDirectory,
+    setIsLoading,
+    setLastTime,
+    setReadDirArray,
+    setSelectedEntries
+  ])
 
   const directoryRef = useRef<HTMLInputElement>(null)
 
@@ -243,8 +267,6 @@ const Home: FC = () => {
   }, [setVolumesList, setIsLoadingVolumes])
 
   const toast = useToast()
-
-  const hidden = isSearching || currentDirectory.length === 0
 
   const baseDirectories = Object.freeze([
     { name: 'Desktop', directory: apiPath?.desktopDir! },
@@ -275,47 +297,62 @@ const Home: FC = () => {
     onClose: onSettingsClose
   } = useDisclosure()
 
+  const foundInSeconds = (lastTime.found - lastTime.launched) / 1000
+  const hidden = isSearching || currentDirectory.length === 0
+  const entrySelected = selectedEntries.length > 0
+  const noEntrySelected = selectedEntries.length === 0
+  const searchBarHidden = entrySelected || hidden
+
   return (
     <>
       <VStack position="fixed" top="2" right="2">
-        <Input
-          ref={directoryRef}
-          isDisabled={hidden}
-          placeholder="Directory"
-          width="10rem"
-          variant="filled"
-          onKeyDown={async event => {
-            if (event.key === 'Enter') {
-              if (directoryRef.current) {
-                if (directoryRef.current.value !== currentDirectory) {
-                  if (await exists(directoryRef.current.value)) {
-                    setCurrentDirectory(directoryRef.current.value)
-                  } else {
-                    toast({
-                      title: 'Error',
-                      description: 'The directory is invalid.',
-                      status: 'error',
-                      duration: 9000,
-                      isClosable: true
-                    })
+        <VStack>
+          <Tooltip label="Type the directory you need" placement="left">
+            <Input
+              ref={directoryRef}
+              isDisabled={searchBarHidden}
+              placeholder="Directory"
+              width="10rem"
+              variant="filled"
+              onKeyDown={async event => {
+                if (event.key === 'Enter') {
+                  if (directoryRef.current) {
+                    if (directoryRef.current.value !== currentDirectory) {
+                      if (await exists(directoryRef.current.value)) {
+                        setCurrentDirectory(directoryRef.current.value)
+                      } else {
+                        toast({
+                          title: 'Error',
+                          description: 'The directory is invalid.',
+                          status: 'error',
+                          duration: 9000,
+                          isClosable: true
+                        })
+                      }
+                    }
                   }
                 }
-              }
-            }
-          }}
-        />
+              }}
+            />
+          </Tooltip>
 
-        <Input
-          isDisabled={hidden}
-          placeholder="Search in current directory"
-          width="10rem"
-          variant="filled"
-          onChange={event => setSearchInDirectory(event.target.value)}
-        />
+          <Tooltip
+            label="What to search for in current directory"
+            placement="left"
+          >
+            <Input
+              isDisabled={searchBarHidden}
+              placeholder="Search"
+              width="10rem"
+              variant="filled"
+              onChange={event => setSearchInDirectory(event.target.value)}
+            />
+          </Tooltip>
+        </VStack>
 
         <VStack alignItems="start">
           <Checkbox
-            isDisabled={hidden}
+            isDisabled={searchBarHidden}
             defaultChecked={false}
             onChange={event =>
               setIsIncludeHiddenFoldersChecked(event.target.checked)
@@ -324,7 +361,7 @@ const Home: FC = () => {
             Include hidden folders
           </Checkbox>
           <Checkbox
-            isDisabled={hidden}
+            isDisabled={searchBarHidden}
             defaultChecked={false}
             onChange={event =>
               setIsIncludeFileExtensionsChecked(event.target.checked)
@@ -333,7 +370,7 @@ const Home: FC = () => {
             Include file extensions
           </Checkbox>
           <Checkbox
-            isDisabled={hidden}
+            isDisabled={searchBarHidden}
             defaultChecked={true}
             onChange={event =>
               setIsSortFromFoldersToFilesChecked(event.target.checked)
@@ -343,24 +380,54 @@ const Home: FC = () => {
           </Checkbox>
         </VStack>
 
+        <Divider />
+
         <RadioGroup
-          isDisabled={hidden}
+          isDisabled={searchBarHidden}
           value={searchingMode.toString()}
           onChange={event => {
             setSearchingMode(parseInt(event) as SearchingModeValue)
           }}
         >
           <VStack alignItems="start">
-            <Radio value="0">Pure text</Radio>
-            <Radio value="1">Mask</Radio>
-            <Radio value="2">Regex</Radio>
+            <Tooltip
+              label="Whether the name of the file or folder contains the string you're searching for"
+              placement="left"
+              shouldWrapChildren
+            >
+              <Radio value="0">Pure text</Radio>
+            </Tooltip>
+
+            <Tooltip
+              label={
+                <VStack alignItems="start">
+                  <Text>* replaces any string</Text>
+                  <Text>? replaces any character</Text>
+                </VStack>
+              }
+              placement="left"
+              shouldWrapChildren
+            >
+              <Radio value="1">Mask</Radio>
+            </Tooltip>
+
+            <Radio value="2">
+              <Link
+                onClick={async () => {
+                  await open('https://docs.rs/regex/latest/regex/#syntax')
+                }}
+                isExternal
+              >
+                Regex
+              </Link>
+            </Radio>
           </VStack>
         </RadioGroup>
 
         <IconButton
           aria-label="Search"
           icon={<SearchIcon />}
-          isDisabled={hidden}
+          isDisabled={searchBarHidden}
           onClick={() => {
             if (searchingMode === 2) {
               try {
@@ -382,6 +449,7 @@ const Home: FC = () => {
               setIsLoading(true)
               setIsSearching(true)
               setReadDirArray([])
+              setSearchingStopped(false)
 
               const lastTimeLaunched = Date.now()
 
@@ -416,6 +484,7 @@ const Home: FC = () => {
           <Button
             variant="outline"
             onClick={() => {
+              setSearchingStopped(true)
               invoke('stop_finding')
             }}
           >
@@ -497,6 +566,7 @@ const Home: FC = () => {
 
                       <Text>Total: ~{volume.total_gb} GB</Text>
                       <Text>Used: ~{volume.used_gb} GB</Text>
+                      <Text>Available: ~{volume.available_gb} GB</Text>
                     </VStack>
                   }
                   placement="right"
@@ -510,6 +580,7 @@ const Home: FC = () => {
                     {volume.is_removable ? <UsbIcon /> : <HardDriveIcon />}
                   </Button>
                 </Tooltip>
+
                 <Progress
                   value={(volume.used_gb / volume.total_gb) * 100}
                   width="5rem"
@@ -568,7 +639,7 @@ const Home: FC = () => {
               </Tooltip>
             </ButtonGroup>
 
-            <Modal isOpen={isSettingsOpen} onClose={onSettingsClose}>
+            <Modal isCentered isOpen={isSettingsOpen} onClose={onSettingsClose}>
               <ModalOverlay backdropFilter="blur(5px)" />
               <ModalContent pb="2">
                 <ModalHeader>Settings</ModalHeader>
@@ -622,26 +693,28 @@ const Home: FC = () => {
               </AlertDescription>
             </Alert>
 
-            <IconButton
-              aria-label="Copy"
-              icon={<CopyIcon />}
-              isDisabled={currentDirectory.length === 0}
-              height="3rem"
-              variant="outline"
-              roundedRight="2xl"
-              roundedLeft="none"
-              onClick={() => {
-                navigator.clipboard.writeText(currentDirectory).then(() => {
-                  toast({
-                    title: 'Copied',
-                    description: 'The path has been copied to the clipboard.',
-                    status: 'success',
-                    duration: 7000,
-                    isClosable: true
+            <Tooltip label="Copy path">
+              <IconButton
+                aria-label="Copy"
+                icon={<CopyIcon />}
+                isDisabled={currentDirectory.length === 0}
+                height="3rem"
+                variant="outline"
+                roundedRight="2xl"
+                roundedLeft="none"
+                onClick={() => {
+                  navigator.clipboard.writeText(currentDirectory).then(() => {
+                    toast({
+                      title: 'Copied',
+                      description: 'The path has been copied to the clipboard.',
+                      status: 'success',
+                      duration: 7000,
+                      isClosable: true
+                    })
                   })
-                })
-              }}
-            />
+                }}
+              />
+            </Tooltip>
           </HStack>
 
           <HStack>
@@ -656,57 +729,159 @@ const Home: FC = () => {
                     <Text fontWeight="bold">{readDirArray.length}</Text>
                     <Text> found in</Text>
                     <Text fontWeight="bold">
-                      {(lastTime.found - lastTime.launched) / 1000}
+                      {foundInSeconds >= 1
+                        ? Math.round(foundInSeconds)
+                        : foundInSeconds.toPrecision(1)}
                     </Text>
                     <Text fontWeight="bold"> seconds</Text>
+                    {searchingStopped && (
+                      <Text fontWeight="bold">(stopped)</Text>
+                    )}
                   </HStack>
                 )}
               </>
             )}
           </HStack>
 
-          <Virtuoso
-            style={{ height: 750, width: '16rem' }}
-            data={readDirArrayMaybeSorted}
-            totalCount={readDirArray.length}
-            itemContent={index => {
-              const fileOrFolder = readDirArrayMaybeSorted[index]
+          <HStack alignItems="start">
+            <Virtuoso
+              style={{ height: 750, width: '16rem' }}
+              data={readDirArrayMaybeSorted}
+              totalCount={readDirArray.length}
+              itemContent={index => {
+                const fileOrFolder = readDirArrayMaybeSorted[index]
 
-              return (
-                <Tooltip key={index} label={fileOrFolder[2]} placement="top">
-                  <Button
-                    width="15rem"
-                    variant="outline"
-                    onDoubleClick={() => {
-                      if (fileOrFolder[0]) {
-                        setCurrentDirectory(fileOrFolder[2])
-                      } else {
-                        invoke('open_file_in_default_application', {
-                          fileName: fileOrFolder[2]
-                        })
-                      }
+                return (
+                  <Tooltip key={index} label={fileOrFolder[2]} placement="top">
+                    <Button
+                      width="15rem"
+                      variant="outline"
+                      onDoubleClick={() => {
+                        if (fileOrFolder[0]) {
+                          setCurrentDirectory(fileOrFolder[2])
+                        } else {
+                          invoke('open_file_in_default_application', {
+                            fileName: fileOrFolder[2]
+                          })
+                        }
+                      }}
+                    >
+                      <Box position="absolute" left="0.5rem">
+                        <FileOrFolderItem fileOrFolder={fileOrFolder} />
+                      </Box>
+
+                      <HStack position="absolute" right="0.5rem">
+                        <Text
+                          width="7rem"
+                          whiteSpace="nowrap"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                          textAlign="right"
+                          mr="0.3rem"
+                        >
+                          {fileOrFolder[1]}
+                        </Text>
+
+                        <Checkbox
+                          isChecked={selectedEntries.includes(fileOrFolder[2])}
+                          onChange={event => {
+                            if (event.target.checked) {
+                              setSelectedEntries(prevValue => [
+                                ...prevValue,
+                                fileOrFolder[2]
+                              ])
+                            } else {
+                              setSelectedEntries(
+                                selectedEntries.filter(
+                                  item => item !== fileOrFolder[2]
+                                )
+                              )
+                            }
+                          }}
+                        ></Checkbox>
+                      </HStack>
+                    </Button>
+                  </Tooltip>
+                )
+              }}
+            />
+
+            <VStack>
+              <ButtonGroup isAttached orientation="vertical">
+                <Tooltip label="Select all files and folders" placement="right">
+                  <IconButton
+                    aria-label="Select all"
+                    isDisabled={readDirArray.length === selectedEntries.length}
+                    icon={<CheckCheckIcon />}
+                    colorScheme="linkedin"
+                    onClick={() => {
+                      setSelectedEntries([])
+
+                      readDirArray.forEach(entry => {
+                        setSelectedEntries(prevValue => [
+                          ...prevValue,
+                          entry[2]
+                        ])
+                      })
                     }}
-                  >
-                    <Box position="absolute" left="0.5rem">
-                      <FileOrFolderItem fileOrFolder={fileOrFolder} />
-                    </Box>
-                    <Box position="absolute" right="0.5rem">
-                      <Text
-                        width="10rem"
-                        whiteSpace="nowrap"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        textAlign="right"
-                        mr="0.3rem"
-                      >
-                        {fileOrFolder[1]}
-                      </Text>
-                    </Box>
-                  </Button>
+                  />
                 </Tooltip>
-              )
-            }}
-          />
+
+                <Tooltip
+                  label="Unselect all files and folders"
+                  placement="right"
+                >
+                  <IconButton
+                    aria-label="Unselect all"
+                    isDisabled={noEntrySelected}
+                    icon={<XIcon />}
+                    colorScheme="red"
+                    onClick={() => setSelectedEntries([])}
+                  />
+                </Tooltip>
+              </ButtonGroup>
+
+              <ButtonGroup
+                pt="2"
+                isAttached
+                orientation="vertical"
+                variant="outline"
+                isDisabled={noEntrySelected}
+              >
+                <Tooltip label="Copy" placement="right">
+                  <IconButton
+                    aria-label="Copy"
+                    icon={<Copy />}
+                    colorScheme="blue"
+                  />
+                </Tooltip>
+
+                <Tooltip label="Move" placement="right">
+                  <IconButton
+                    aria-label="Move"
+                    icon={<MoveRightIcon />}
+                    colorScheme="orange"
+                  />
+                </Tooltip>
+
+                <Tooltip label="Paste" placement="right">
+                  <IconButton
+                    aria-label="Paste"
+                    icon={<ArrowBigDownDashIcon />}
+                    colorScheme="green"
+                  />
+                </Tooltip>
+
+                <Tooltip label="Delete" placement="right">
+                  <IconButton
+                    aria-label="Delete"
+                    icon={<Trash2Icon />}
+                    colorScheme="red"
+                  />
+                </Tooltip>
+              </ButtonGroup>
+            </VStack>
+          </HStack>
         </VStack>
       </HStack>
 
@@ -717,7 +892,7 @@ const Home: FC = () => {
             backgroundColor={themeOptionsButtonBackgroundColor}
             rounded="full"
           >
-            {Object.freeze(['dark', 'light']).map(colorMode => (
+            {Object.freeze(['dark', 'light'] as const).map(colorMode => (
               <IconButton
                 aria-label="Set theme"
                 key={colorMode}

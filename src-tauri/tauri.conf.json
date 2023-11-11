@@ -21,6 +21,9 @@
       },
       "window": {
         "setFullscreen": true
+      },
+      "shell": {
+        "open": true
       }
     },
     "bundle": {
