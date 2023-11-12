@@ -6,18 +6,11 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Serialize;
 use std::{
-    fs::read_dir,
-    collections::HashSet,
-    path::PathBuf,
-    sync::Arc,
-    time::Duration,
+    collections::HashSet, fs::read_dir, mem::forget, path::PathBuf, sync::Arc, time::Duration,
 };
 use sysinfo::{Disk, DiskExt, System, SystemExt};
 use tauri::{AppHandle, Manager};
-use tokio::{
-    time::interval,
-    sync::Mutex,
-};
+use tokio::{sync::Mutex, time::interval};
 use trash::delete;
 use walkdir::WalkDir;
 
@@ -66,7 +59,7 @@ fn from_volume(disk: &Disk) -> Volume {
         available_gb,
         used_gb,
         total_gb,
-    }
+    };
 }
 
 #[tauri::command(async)]
@@ -204,7 +197,9 @@ async fn find_files_and_folders(
         // When searching is supposed to be stopped, the variable gets set to true, so we need
         // to set its value back to true and quit the function by returning
         if *STOP_FINDING.lock().await {
+            forget(entry);
             *STOP_FINDING.lock().await = false;
+
             return;
         }
 

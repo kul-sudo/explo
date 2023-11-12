@@ -84,39 +84,9 @@ import {
 import { exists } from '@tauri-apps/api/fs'
 import { open } from '@tauri-apps/api/shell'
 import { Virtuoso } from 'react-virtuoso'
-import { wordsWhenSearching } from '@/lib/consts'
 import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
-
-const WordWhenSearching: FC = () => {
-  const [word, setWord] = useState<string>(
-    wordsWhenSearching[~~(Math.random() * wordsWhenSearching.length)]
-  )
-
-  const memorisedSetWord = useCallback(() => {
-    setWord(wordsWhenSearching[~~(Math.random() * wordsWhenSearching.length)])
-  }, [])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      memorisedSetWord()
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [memorisedSetWord])
-
-  return (
-    <Text
-      p="1"
-      rounded="lg"
-      backgroundColor={`#${(0x1000000 + ~~(Math.random() * 0x1000000))
-        .toString(16)
-        .substring(1)}`}
-    >
-      {word}
-    </Text>
-  )
-}
+import WordWhenSearching from '@/components/WordWhenSearching'
 
 const Home: FC = () => {
   // Checkbox states
@@ -269,21 +239,6 @@ const Home: FC = () => {
 
   const toast = useToast()
 
-  const baseDirectories = Object.freeze([
-    { name: 'Desktop', directory: apiPath?.desktopDir! },
-    {
-      name: 'User',
-      directory: apiPath?.homeDir!,
-      children: [
-        { name: 'Documents', directory: apiPath?.documentDir! },
-        { name: 'Downloads', directory: apiPath?.downloadDir! },
-        { name: 'Pictures', directory: apiPath?.pictureDir! },
-        { name: 'Music', directory: apiPath?.audioDir! },
-        { name: 'Videos', directory: apiPath?.videoDir! }
-      ]
-    }
-  ] as const)
-
   const { colorMode: currentColorMode, setColorMode } = useColorMode()
 
   const themeIconButtonBackgroundColor = useColorModeValue('black', 'white')
@@ -303,6 +258,21 @@ const Home: FC = () => {
   const entrySelected = selectedEntries.length > 0
   const noEntrySelected = selectedEntries.length === 0
   const searchBarHidden = entrySelected || hidden
+
+  const baseDirectories = Object.freeze([
+    { name: 'Desktop', directory: apiPath?.desktopDir! },
+    {
+      name: 'User',
+      directory: apiPath?.homeDir!,
+      children: [
+        { name: 'Documents', directory: apiPath?.documentDir! },
+        { name: 'Downloads', directory: apiPath?.downloadDir! },
+        { name: 'Pictures', directory: apiPath?.pictureDir! },
+        { name: 'Music', directory: apiPath?.audioDir! },
+        { name: 'Videos', directory: apiPath?.videoDir! }
+      ]
+    }
+  ] as const)
 
   return (
     <>
@@ -414,9 +384,9 @@ const Home: FC = () => {
 
             <Radio value="2">
               <Link
-                onClick={async () => {
+                onClick={async () =>
                   await open('https://docs.rs/regex/latest/regex/#syntax')
-                }}
+                }
                 isExternal
               >
                 Regex

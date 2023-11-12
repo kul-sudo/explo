@@ -1,8 +1,9 @@
+import type { FC } from 'react'
 import { ColorModeScript, extendTheme } from '@chakra-ui/react'
 import { Html, Head, Main, NextScript } from 'next/document'
 import theme from '@/lib/theme'
 
-export default function Document() {
+const Document: FC = () => {
   return (
     <Html lang="en">
       <Head />
@@ -16,3 +17,5 @@ export default function Document() {
     </Html>
   )
 }
+
+export default Document
