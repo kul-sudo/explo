@@ -204,6 +204,7 @@ const Home: FC = () => {
   ])
 
   useEffect(() => {
+    setSearchingStopped(false)
     setIsLoading(true)
     setReadDirArray([])
     setSelectedEntries([])
@@ -222,6 +223,7 @@ const Home: FC = () => {
     }
   }, [
     currentDirectory,
+    setSearchingStopped,
     setIsLoading,
     setLastTime,
     setReadDirArray,
