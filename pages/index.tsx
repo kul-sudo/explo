@@ -1,10 +1,6 @@
 import type { FC } from 'react'
-import type {
-  AddEventProps,
-  SearchingModeValue,
-  VolumesListProps
-} from '@/types/types'
-import { path, window } from '@tauri-apps/api'
+import type { SearchingModeValue, VolumesListProps } from '@/types/types'
+import type { path, window } from '@tauri-apps/api'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
@@ -87,6 +83,7 @@ import { Virtuoso } from 'react-virtuoso'
 import useUndoRedo from '@/lib/useUndoRedo'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
 import WordWhenSearching from '@/components/WordWhenSearching'
+import { AddSchema, VolumesSchema } from '@/lib/schemas'
 
 const Home: FC = () => {
   // Checkbox states
@@ -155,8 +152,11 @@ const Home: FC = () => {
 
   // Preventing re-rendering
   const memorisedSetReadDirArray = useCallback(() => {
-    const unlisten = listen('add', (event: { payload: AddEventProps }) => {
-      setReadDirArray(prevValue => [...prevValue, event.payload])
+    const unlisten = listen('add', event => {
+      setReadDirArray(prevValue => [
+        ...prevValue,
+        AddSchema.parse(event.payload)
+      ])
     })
 
     return () => {
@@ -213,6 +213,7 @@ const Home: FC = () => {
 
     if (currentDirectory.length > 0) {
       invoke('read_directory', { directory: currentDirectory }).then(() => {
+        setSearchingStopped(false)
         setIsLoading(false)
 
         setLastTime({
@@ -234,7 +235,7 @@ const Home: FC = () => {
 
   useEffect(() => {
     invoke('get_volumes').then(volumes => {
-      setVolumesList(volumes as VolumesListProps)
+      setVolumesList(VolumesSchema.parse(volumes))
       setIsLoadingVolumes(false)
     })
   }, [setVolumesList, setIsLoadingVolumes])
