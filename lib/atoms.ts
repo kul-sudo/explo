@@ -13,7 +13,6 @@ export const volumesListAtom = atom<VolumesListProps>([])
 export const readDirArrayAtom = atom<AddEventProps[]>([])
 export const searchingInDirectoryAtom = atom<string>('')
 export const isSearchingAtom = atom<boolean>(false)
-export const isLoadingAtom = atom<boolean>(false)
 
 export const isIncludeHiddenFoldersCheckedAtom = atom<boolean>(false)
 export const isIncludeFileExtensionCheckedAtom = atom<boolean>(false)

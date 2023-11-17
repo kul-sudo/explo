@@ -1,6 +1,6 @@
-import { z } from 'zod'
 import type { AddEventProps, VolumesListProps } from '@/types/types'
 import type { ZodType } from 'zod'
+import { z } from 'zod'
 
 export const VolumesSchema: ZodType<VolumesListProps> = z.array(
   z.object({

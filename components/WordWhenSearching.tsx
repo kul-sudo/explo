@@ -1,9 +1,9 @@
-import type { FC } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import type { NextPage } from 'next'
 import { Text } from '@chakra-ui/react'
+import { useCallback, useEffect, useState } from 'react'
 import { wordsWhenSearching } from '@/lib/consts'
 
-const WordWhenSearching: FC = () => {
+const WordWhenSearching: NextPage = () => {
   const [word, setWord] = useState<string>(
     wordsWhenSearching[~~(Math.random() * wordsWhenSearching.length)]
   )

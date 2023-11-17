@@ -1,9 +1,4 @@
 export const settings = Object.freeze({
-  'Partially disable animations': {
-    isChecked: true,
-    description:
-      'Partially disabling the animations might improve the performance, but the improvement will most likely be very insignificant.'
-  },
   'Show theme options': {
     isChecked: true,
     description:

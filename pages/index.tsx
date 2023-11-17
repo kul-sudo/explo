@@ -1,4 +1,4 @@
-import type { FC } from 'react'
+import type { NextPage } from 'next'
 import type { SearchingModeValue, VolumesListProps } from '@/types/types'
 import type { path, window } from '@tauri-apps/api'
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -43,8 +43,6 @@ import {
   isIncludeHiddenFoldersCheckedAtom,
   isIncludeFileExtensionCheckedAtom,
   isSortFromFoldersToFilesCheckedAtom,
-  isLoadingAtom,
-  isLoadingVolumesAtom,
   isSearchingAtom,
   lastTimeAtom,
   readDirArrayAtom,
@@ -55,7 +53,8 @@ import {
   searchingStoppedAtom,
   selectedEntriesAtom,
   copiedEntriesAtom,
-  showCopyAtom
+  showCopyAtom,
+  isLoadingVolumesAtom
 } from '@/lib/atoms'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
@@ -77,15 +76,15 @@ import {
   Trash2Icon,
   XIcon
 } from 'lucide-react'
+import { Virtuoso } from 'react-virtuoso'
 import { exists } from '@tauri-apps/api/fs'
 import { open } from '@tauri-apps/api/shell'
-import { Virtuoso } from 'react-virtuoso'
-import useUndoRedo from '@/lib/useUndoRedo'
+import { AddSchema, VolumesSchema } from '@/lib/schemas'
 import FileOrFolderItem from '@/components/FileOrFolderItem'
 import WordWhenSearching from '@/components/WordWhenSearching'
-import { AddSchema, VolumesSchema } from '@/lib/schemas'
+import useUndoRedo from '@/lib/useUndoRedo'
 
-const Home: FC = () => {
+const Home: NextPage = () => {
   // Checkbox states
   const [isIncludeHiddenFoldersChecked, setIsIncludeHiddenFoldersChecked] =
     useAtom(isIncludeHiddenFoldersCheckedAtom)
@@ -115,7 +114,6 @@ const Home: FC = () => {
   )
 
   const [isSearching, setIsSearching] = useAtom(isSearchingAtom)
-  const [isLoading, setIsLoading] = useAtom(isLoadingAtom)
 
   const [searchingMode, setSearchingMode] = useAtom(searchingModeAtom)
 
@@ -205,7 +203,6 @@ const Home: FC = () => {
 
   useEffect(() => {
     setSearchingStopped(false)
-    setIsLoading(true)
     setReadDirArray([])
     setSelectedEntries([])
 
@@ -214,7 +211,6 @@ const Home: FC = () => {
     if (currentDirectory.length > 0) {
       invoke('read_directory', { directory: currentDirectory }).then(() => {
         setSearchingStopped(false)
-        setIsLoading(false)
 
         setLastTime({
           launched: lastTimeLaunched,
@@ -225,7 +221,6 @@ const Home: FC = () => {
   }, [
     currentDirectory,
     setSearchingStopped,
-    setIsLoading,
     setLastTime,
     setReadDirArray,
     setSelectedEntries
@@ -420,21 +415,19 @@ const Home: FC = () => {
             }
 
             if (searchInDirectory.length > 0) {
-              setIsLoading(true)
-              setIsSearching(true)
               setReadDirArray([])
               setSearchingStopped(false)
+              setIsSearching(true)
 
               const lastTimeLaunched = Date.now()
 
               invoke('find_files_and_folders', {
                 current_directory: currentDirectory,
-                search_in_directory: searchInDirectory.toLowerCase(),
+                search_in_directory: searchInDirectory,
                 include_hidden_folders: isIncludeHiddenFoldersChecked,
                 include_file_extension: isIncludeFileExtensionsChecked,
                 searching_mode: searchingMode
               }).then(() => {
-                setIsLoading(false)
                 setIsSearching(false)
 
                 setLastTime({
@@ -588,12 +581,11 @@ const Home: FC = () => {
                   isDisabled={hidden}
                   rounded="full"
                   onClick={() => {
-                    setIsLoading(true)
                     setReadDirArray([])
 
                     invoke('read_directory', {
                       directory: currentDirectory
-                    }).then(() => setIsLoading(false))
+                    })
                   }}
                 />
               </Tooltip>
@@ -692,7 +684,7 @@ const Home: FC = () => {
           </HStack>
 
           <HStack>
-            {isLoading && readDirArray.length > 0 && <Spinner />}
+            {isSearching && <Spinner />}
 
             {currentDirectory.length > 0 && (
               <>

@@ -35,18 +35,19 @@ struct Volume {
 }
 
 #[derive(Serialize, Clone)]
-struct Emit {
+struct Emit<'a> {
     is_folder: bool,
-    name: String,
-    path: String,
-    extension: String,
+    name: &'a str,
+    path: &'a str,
+    extension: &'a str,
 }
 
 fn from_volume(disk: &Disk) -> Volume {
-    let used_bytes = disk.total_space() - disk.available_space();
-    let available_gb = bytes_to_gb!(disk.available_space());
+    let total_space = disk.total_space();
+    let used_bytes = total_space - disk.available_space();
     let used_gb = bytes_to_gb!(used_bytes);
-    let total_gb = bytes_to_gb!(disk.total_space());
+    let total_gb = bytes_to_gb!(total_space);
+    let available_gb = total_gb - used_gb;
 
     let mountpoint = disk.mount_point().to_path_buf();
     let kind = format!("{:?}", disk.kind());
@@ -167,14 +168,14 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
             "add",
             Emit {
                 is_folder: entry_path.is_dir(),
-                name: entry.file_name().to_string_lossy().to_string(),
-                path: entry_path.to_string_lossy().to_string(),
+                name: entry.file_name().to_str().unwrap(),
+                path: entry_path.to_str().unwrap(),
                 extension: entry
                     .path()
                     .extension()
                     .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string(),
+                    .to_str()
+                    .unwrap(),
             },
         );
     }
@@ -222,14 +223,14 @@ async fn find_files_and_folders(
                 "add",
                 Emit {
                     is_folder: entry_path.is_dir(),
-                    name: entry_filename.to_string(),
-                    path: entry_path.to_string_lossy().to_string(),
+                    name: entry_filename,
+                    path: entry_path.to_str().unwrap(),
                     extension: entry
                         .path()
                         .extension()
                         .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
+                        .to_str()
+                        .unwrap(),
                 },
             );
         }
@@ -242,6 +243,8 @@ async fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .on_page_load(|webview, _payload| {
             tokio::spawn(async move {
+                let app_handle = webview.app_handle();
+
                 let mut interval = interval(Duration::from_secs(1));
                 let mut volumes = get_volumes();
 
@@ -257,9 +260,7 @@ async fn main() {
                             .collect::<HashSet<Volume>>();
                         volumes = current_volumes;
 
-                        let _ = webview
-                            .app_handle()
-                            .emit_all("volumes", vec![&difference, &volumes]);
+                        let _ = app_handle.emit_all("volumes", vec![&difference, &volumes]);
                     }
                 }
             });

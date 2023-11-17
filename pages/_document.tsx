@@ -1,16 +1,14 @@
-import type { FC } from 'react'
-import { ColorModeScript, extendTheme } from '@chakra-ui/react'
+import type { NextPage } from 'next'
+import { ColorModeScript } from '@chakra-ui/react'
 import { Html, Head, Main, NextScript } from 'next/document'
 import theme from '@/lib/theme'
 
-const Document: FC = () => {
+const Document: NextPage = () => {
   return (
     <Html lang="en">
       <Head />
       <body>
-        <ColorModeScript
-          initialColorMode={extendTheme(theme).config.initialColorMode}
-        />
+        <ColorModeScript initialColorMode={theme.config.initialColorMode} />
         <Main />
         <NextScript />
       </body>

@@ -1,3 +1,4 @@
+import { extendTheme } from '@chakra-ui/react'
 import type { GlobalStyleProps } from '@chakra-ui/theme-tools'
 import { mode } from '@chakra-ui/theme-tools'
 import { Inter } from 'next/font/google'
@@ -30,4 +31,4 @@ const theme = {
   config
 }
 
-export default theme
+export default extendTheme(theme)

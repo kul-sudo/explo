@@ -1,6 +1,6 @@
 import type { Reducer } from 'react'
-import type { PrimitiveAtom } from 'jotai'
 import type { UndoRedoObjectProps, ActionObjectProps } from '@/types/types'
+import type { PrimitiveAtom } from 'jotai'
 import { useReducerAtom } from 'jotai/utils'
 
 const enum ActionTypes {
