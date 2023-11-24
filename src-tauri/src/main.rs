@@ -53,14 +53,14 @@ fn from_volume(disk: &Disk) -> Volume {
     let kind = format!("{:?}", disk.kind());
     let is_removable = disk.is_removable();
 
-    return Volume {
+    Volume {
         is_removable,
         kind,
         mountpoint,
         available_gb,
         used_gb,
         total_gb,
-    };
+    }
 }
 
 #[tauri::command(async)]
@@ -72,10 +72,10 @@ fn get_volumes() -> HashSet<Volume> {
     let volumes = sys
         .disks()
         .iter()
-        .map(|volume| from_volume(volume))
+        .map(from_volume)
         .collect::<HashSet<Volume>>();
 
-    return volumes;
+    volumes
 }
 
 // is_match, but for a mask
