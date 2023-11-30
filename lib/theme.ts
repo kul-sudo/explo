@@ -1,12 +1,12 @@
+import type { ThemeOverride } from '@chakra-ui/react'
 import { extendTheme } from '@chakra-ui/react'
-import type { GlobalStyleProps } from '@chakra-ui/theme-tools'
 import { mode } from '@chakra-ui/theme-tools'
 import { Inter } from 'next/font/google'
 
 const font = Inter({ subsets: ['latin'] })
 
-const styles = {
-  global: (props: GlobalStyleProps) => ({
+const styles: ThemeOverride['styles'] = {
+  global: props => ({
     body: {
       bg: mode('#fff', '#18181b')(props),
       transitionProperty: 'all',
@@ -15,20 +15,18 @@ const styles = {
   })
 }
 
-const fonts = {
+const fonts: ThemeOverride['fonts'] = {
   body: font.style.fontFamily
 }
 
-const config = {
+const config: ThemeOverride['config'] = {
   initialColorMode: 'dark',
   useSystemColorMode: false,
   disableTransitionOnChange: false
 }
 
-const theme = {
+export default extendTheme({
   styles,
   fonts,
   config
-}
-
-export default extendTheme(theme)
+} satisfies ThemeOverride)
