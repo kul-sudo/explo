@@ -1,5 +1,9 @@
 import type { NextPage } from 'next'
-import type { SearchingModeValue, VolumesListProps } from '@/types/types'
+import type {
+  AddEventProps,
+  SearchingModeValue,
+  VolumesListProps
+} from '@/types/types'
 import type { path, window } from '@tauri-apps/api'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
@@ -150,7 +154,7 @@ const Home: NextPage = () => {
 
   // Preventing re-rendering
   const memorisedSetReadDirArray = useCallback(() => {
-    const unlisten = listen('add', event => {
+    const unlisten = listen<AddEventProps>('add', event => {
       setReadDirArray(prevValue => [
         ...prevValue,
         AddSchema.parse(event.payload)
@@ -173,9 +177,9 @@ const Home: NextPage = () => {
 
   // Listening for the event that adds files and folders to the array shown to the user
   useEffect(() => {
-    const unlisten = listen(
+    const unlisten = listen<[VolumesListProps, VolumesListProps]>(
       'volumes',
-      (event: { payload: [VolumesListProps, VolumesListProps] }) => {
+      event => {
         const payload = event.payload
 
         if (
@@ -512,7 +516,7 @@ const Home: NextPage = () => {
 
           {volumesList
             .slice()
-            .sort((a, b) => {
+            .toSorted((a, b) => {
               if (a.used_gb / a.total_gb > b.used_gb / b.total_gb) {
                 return 1
               }
@@ -844,18 +848,19 @@ const Home: NextPage = () => {
                   </Tooltip>
                 )}
 
-                <Tooltip label="Move" placement="right">
+                <Tooltip label="Coming soon" placement="right">
                   <IconButton
+                    isDisabled
                     aria-label="Move"
                     icon={<MoveRightIcon />}
                     colorScheme="orange"
                   />
                 </Tooltip>
 
-                <Tooltip label="Paste" placement="right">
+                <Tooltip label="Coming soon" placement="right">
                   <IconButton
                     aria-label="Paste"
-                    isDisabled={copiedEntries.length === 0}
+                    isDisabled={true || copiedEntries.length === 0}
                     icon={<ArrowBigDownDashIcon />}
                     colorScheme="green"
                   />

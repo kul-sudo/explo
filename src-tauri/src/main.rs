@@ -67,7 +67,7 @@ fn from_volume(disk: &Disk) -> Volume {
 fn get_volumes() -> HashSet<Volume> {
     let mut sys = System::new_all();
 
-    sys.refresh_disks_list();
+    sys.refresh_all();
 
     let volumes = sys
         .disks()

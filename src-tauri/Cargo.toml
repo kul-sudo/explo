@@ -17,17 +17,17 @@ codegen-units = 1
 strip = true
 
 [build-dependencies]
-tauri-build = { version = "1.5.0", features = [] }
+tauri-build = { version = "1.5.1", features = [] }
 
 [dependencies]
 serde = { version = "1.0.193", features = ["derive"] }
-tauri = { version = "1.5.2", features = [
+tauri = { version = "1.5.4", features = [
   "shell-open",
   "window-set-fullscreen",
   "fs-exists",
   "path-all",
 ] }
-tokio = { version = "1.34.0", features = ["full"] }
+tokio = { version = "1.35.1", features = ["full"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 regex = "1.10.2"
 walkdir = "2.4.0"
