@@ -7,11 +7,6 @@ export const settings = Object.freeze({
   Fullscreen: {
     isChecked: false,
     description: 'This setting toggles the fullscreen mode.'
-  },
-  'Show base directories': {
-    isChecked: true,
-    description:
-      'The visibility of the built-in directories in the side bar on the left-hand side can be toggled with this setting.'
   }
 } as const)
 

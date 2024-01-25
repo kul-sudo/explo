@@ -56,23 +56,22 @@ import {
   currentSettingsAtom,
   searchingStoppedAtom,
   selectedEntriesAtom,
-  copiedEntriesAtom,
-  showCopyAtom,
+  // copiedEntriesAtom,
+  // showCopyAtom,
   isLoadingVolumesAtom
 } from '@/lib/atoms'
 import { AiFillUsb as UsbIcon } from 'react-icons/ai'
 import {
-  ArrowBigDownDashIcon,
+  // ArrowBigDownDashIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCheckIcon,
-  Copy,
+  // Copy,
   CopyIcon,
-  CopyXIcon,
+  // CopyXIcon,
   HardDriveIcon,
   InfoIcon,
   MoonIcon,
-  MoveRightIcon,
   RotateCw,
   SearchIcon,
   SettingsIcon,
@@ -102,7 +101,7 @@ const Home: NextPage = () => {
 
   // This variable stores the sorted version of 'readDirArray' when it needs to be sorted
   const readDirArrayMaybeSorted = isSortFromFoldersToFilesChecked
-    ? readDirArray.slice().sort((a, b) => {
+    ? readDirArray.slice().toSorted((a, b) => {
         if (a.is_folder && !b.is_folder) {
           return -1
         } else {
@@ -170,10 +169,10 @@ const Home: NextPage = () => {
 
   const [volumesList, setVolumesList] = useAtom(volumesListAtom)
 
-  const [showCopy, setShowCopy] = useAtom(showCopyAtom)
+  // const [showCopy, setShowCopy] = useAtom(showCopyAtom)
   const [searchingStopped, setSearchingStopped] = useAtom(searchingStoppedAtom)
   const [selectedEntries, setSelectedEntries] = useAtom(selectedEntriesAtom)
-  const [copiedEntries, setCopiedEntries] = useAtom(copiedEntriesAtom)
+  // const [copiedEntries, setCopiedEntries] = useAtom(copiedEntriesAtom)
 
   // Listening for the event that adds files and folders to the array shown to the user
   useEffect(() => {
@@ -466,51 +465,49 @@ const Home: NextPage = () => {
 
       <HStack position="fixed" top="0" left="0" alignItems="start">
         <VStack px="0.5rem" height="100vh" spacing="0.3rem">
-          {currentSettings['Show base directories'].isChecked && (
-            <VStack>
-              {baseDirectories.map(section => (
-                <>
-                  <Button
-                    _first={{
-                      marginTop: '0.5rem'
-                    }}
-                    key={section.name}
-                    isDisabled={isSearching}
-                    width="7rem"
-                    rounded="2xl"
-                    onClick={async () => {
-                      setCurrentDirectory(await section.directory())
-                    }}
-                  >
-                    {section.name}
-                  </Button>
+          <VStack>
+            {baseDirectories.map(section => (
+              <>
+                <Button
+                  _first={{
+                    marginTop: '0.5rem'
+                  }}
+                  key={section.name}
+                  isDisabled={isSearching}
+                  width="7rem"
+                  rounded="2xl"
+                  onClick={async () => {
+                    setCurrentDirectory(await section.directory())
+                  }}
+                >
+                  {section.name}
+                </Button>
 
-                  <HStack ml="0.5rem">
-                    <Divider orientation="vertical" />
-                    <VStack>
-                      {'children' in section &&
-                        section.children.map(child => (
-                          <Button
-                            _first={{ marginTop: '0.2rem' }}
-                            _last={{ marginBottom: '0.4rem' }}
-                            key={child.name}
-                            isDisabled={isSearching}
-                            width="7rem"
-                            roundedLeft="3xl"
-                            roundedRight="xl"
-                            onClick={async () => {
-                              setCurrentDirectory(await child.directory())
-                            }}
-                          >
-                            {child.name}
-                          </Button>
-                        ))}
-                    </VStack>
-                  </HStack>
-                </>
-              ))}
-            </VStack>
-          )}
+                <HStack ml="0.5rem">
+                  <Divider orientation="vertical" />
+                  <VStack>
+                    {'children' in section &&
+                      section.children.map(child => (
+                        <Button
+                          _first={{ marginTop: '0.2rem' }}
+                          _last={{ marginBottom: '0.4rem' }}
+                          key={child.name}
+                          isDisabled={isSearching}
+                          width="7rem"
+                          roundedLeft="3xl"
+                          roundedRight="xl"
+                          onClick={async () => {
+                            setCurrentDirectory(await child.directory())
+                          }}
+                        >
+                          {child.name}
+                        </Button>
+                      ))}
+                  </VStack>
+                </HStack>
+              </>
+            ))}
+          </VStack>
 
           {isLoadingVolumes && <Spinner />}
 
@@ -818,53 +815,53 @@ const Home: NextPage = () => {
                 orientation="vertical"
                 isDisabled={noEntrySelected}
               >
-                {showCopy ? (
-                  <Tooltip label="Copy" placement="right">
-                    <IconButton
-                      aria-label="Copy"
-                      icon={<Copy />}
-                      colorScheme="blue"
-                      onClick={() => {
-                        setShowCopy(false)
-                        setCopiedEntries(selectedEntries)
-                      }}
-                    />
-                  </Tooltip>
-                ) : (
-                  <Tooltip
-                    label="Uncopy all copied files/folders"
-                    placement="right"
-                  >
-                    <IconButton
-                      aria-label="Uncopy"
-                      icon={<CopyXIcon />}
-                      colorScheme="blue"
-                      isDisabled={false}
-                      onClick={() => {
-                        setShowCopy(true)
-                        setCopiedEntries([])
-                      }}
-                    />
-                  </Tooltip>
-                )}
+                {/* {showCopy ? ( */}
+                {/*   <Tooltip label="Copy" placement="right"> */}
+                {/*     <IconButton */}
+                {/*       aria-label="Copy" */}
+                {/*       icon={<Copy />} */}
+                {/*       colorScheme="blue" */}
+                {/*       onClick={() => { */}
+                {/*         setShowCopy(false) */}
+                {/*         setCopiedEntries(selectedEntries) */}
+                {/*       }} */}
+                {/*     /> */}
+                {/*   </Tooltip> */}
+                {/* ) : ( */}
+                {/*   <Tooltip */}
+                {/*     label="Uncopy all copied files/folders" */}
+                {/*     placement="right" */}
+                {/*   > */}
+                {/*     <IconButton */}
+                {/*       aria-label="Uncopy" */}
+                {/*       icon={<CopyXIcon />} */}
+                {/*       colorScheme="blue" */}
+                {/*       isDisabled={false} */}
+                {/*       onClick={() => { */}
+                {/*         setShowCopy(true) */}
+                {/*         setCopiedEntries([]) */}
+                {/*       }} */}
+                {/*     /> */}
+                {/*   </Tooltip> */}
+                {/* )} */}
 
-                <Tooltip label="Coming soon" placement="right">
-                  <IconButton
-                    isDisabled
-                    aria-label="Move"
-                    icon={<MoveRightIcon />}
-                    colorScheme="orange"
-                  />
-                </Tooltip>
-
-                <Tooltip label="Coming soon" placement="right">
-                  <IconButton
-                    aria-label="Paste"
-                    isDisabled={true || copiedEntries.length === 0}
-                    icon={<ArrowBigDownDashIcon />}
-                    colorScheme="green"
-                  />
-                </Tooltip>
+                {/* <Tooltip label="Paste" placement="right"> */}
+                {/*   <IconButton */}
+                {/*     aria-label="Paste" */}
+                {/*     isDisabled={copiedEntries.length === 0} */}
+                {/*     icon={<ArrowBigDownDashIcon />} */}
+                {/*     colorScheme="green" */}
+                {/*     onClick={() => { */}
+                {/*       invoke('paste_entries', { */}
+                {/*         entryPaths: copiedEntries, */}
+                {/*         to: currentDirectory */}
+                {/*       }) */}
+                {/**/}
+                {/*       setSelectedEntries([]) */}
+                {/*       setCopiedEntries([]) */}
+                {/*     }} */}
+                {/*   /> */}
+                {/* </Tooltip> */}
 
                 <Tooltip label="Delete" placement="right">
                   <IconButton
@@ -878,10 +875,10 @@ const Home: NextPage = () => {
                         )
                       )
 
-                      setSelectedEntries([])
-                      setCopiedEntries([])
+                      invoke('delete_entries', { entryPaths: selectedEntries })
 
-                      invoke('delete_entry', { entryPaths: selectedEntries })
+                      setSelectedEntries([])
+                      // setCopiedEntries([])
                     }}
                   />
                 </Tooltip>

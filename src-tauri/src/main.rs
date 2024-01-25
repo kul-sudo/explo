@@ -160,11 +160,18 @@ async fn open_file_in_default_application(file_name: String) {
 }
 
 #[tauri::command(async)]
-async fn delete_entry(entry_paths: Vec<String>) {
+async fn delete_entries(entry_paths: Vec<String>) {
     for entry_path in entry_paths {
         let _ = delete(entry_path);
     }
 }
+
+// #[tauri::command(async)]
+// async fn paste_entries(entry_paths: Vec<String>, to: String) {
+//     for entry_path in entry_paths {
+//         let _ = copy(entry_path.clone(), to.clone());
+//     }
+// }
 
 #[tauri::command(async)]
 async fn read_directory(app_handle: AppHandle, directory: String) {
@@ -249,7 +256,7 @@ async fn main() {
             read_directory,
             stop_finding,
             get_volumes,
-            delete_entry
+            delete_entries,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
