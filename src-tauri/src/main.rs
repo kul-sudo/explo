@@ -5,9 +5,7 @@ use globmatch::is_hidden_path;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Serialize;
-use std::{
-    collections::HashSet, fs::read_dir, mem::forget, path::PathBuf, sync::Arc, time::Duration,
-};
+use std::{collections::HashSet, fs::read_dir, mem::forget, path::PathBuf, time::Duration};
 use sysinfo::{Disk, DiskExt, System, SystemExt};
 use tauri::{AppHandle, Manager};
 use tokio::{sync::Mutex, time::interval};
@@ -15,7 +13,7 @@ use trash::delete;
 use walkdir::WalkDir;
 
 lazy_static! {
-    static ref STOP_FINDING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+    static ref STOP_FINDING: Mutex<bool> = Mutex::new(false);
 }
 
 macro_rules! bytes_to_gb {
@@ -66,24 +64,17 @@ fn from_volume(disk: &Disk) -> Volume {
 #[tauri::command(async)]
 fn get_volumes() -> HashSet<Volume> {
     let mut sys = System::new_all();
-
     sys.refresh_all();
 
-    let volumes = sys
-        .disks()
-        .iter()
-        .map(from_volume)
-        .collect::<HashSet<Volume>>();
-
-    volumes
+    return sys.disks().iter().map(from_volume).collect();
 }
 
 // is_match, but for a mask
 fn match_mask(s: &str, mask: &str) -> bool {
-    let mut s_index: usize = 0;
-    let mut mask_index: usize = 0;
-    let mut s_star: usize = 0;
-    let mut mask_star: Option<usize> = None;
+    let mut s_index = 0;
+    let mut mask_index = 0;
+    let mut s_star = 0;
+    let mut mask_star = None;
 
     while s_index < s.len() {
         if mask_index < mask.len()
@@ -126,8 +117,26 @@ macro_rules! is_suitable {
             2 => Regex::new($search_in_directory)
                 .unwrap()
                 .is_match($filename_without_extension),
-            _ => false,
+            _ => unreachable!(),
         }
+    };
+}
+
+macro_rules! emit {
+    ($app_handle:expr, $entry_path:expr, $entry_filename:expr) => {
+        let _ = $app_handle.emit_all(
+            "add",
+            Emit {
+                is_folder: $entry_path.is_dir(),
+                name: $entry_filename,
+                path: $entry_path.to_str().unwrap(),
+                extension: $entry_path
+                    .extension()
+                    .unwrap_or_default()
+                    .to_str()
+                    .unwrap(),
+            },
+        );
     };
 }
 
@@ -136,7 +145,7 @@ macro_rules! only_mountpoints {
         $volumes_
             .iter()
             .map(|volume| volume.mountpoint.to_str().unwrap())
-            .collect::<HashSet<_>>()
+            .collect::<HashSet<&str>>()
     };
 }
 
@@ -163,21 +172,7 @@ async fn read_directory(app_handle: AppHandle, directory: String) {
     for entry in read_dir(directory).unwrap().filter_map(|e| e.ok()) {
         let entry_path = entry.path();
 
-        // [isFolder, name, path, extension]
-        let _ = app_handle.emit_all(
-            "add",
-            Emit {
-                is_folder: entry_path.is_dir(),
-                name: entry.file_name().to_str().unwrap(),
-                path: entry_path.to_str().unwrap(),
-                extension: entry
-                    .path()
-                    .extension()
-                    .unwrap_or_default()
-                    .to_str()
-                    .unwrap(),
-            },
-        );
+        emit!(app_handle, entry_path, entry.file_name().to_str().unwrap());
     }
 }
 
@@ -219,20 +214,7 @@ async fn find_files_and_folders(
                 searching_mode
             )
         {
-            let _ = app_handle.emit_all(
-                "add",
-                Emit {
-                    is_folder: entry_path.is_dir(),
-                    name: entry_filename,
-                    path: entry_path.to_str().unwrap(),
-                    extension: entry
-                        .path()
-                        .extension()
-                        .unwrap_or_default()
-                        .to_str()
-                        .unwrap(),
-                },
-            );
+            emit!(app_handle, entry_path, entry_filename);
         }
     }
 }
@@ -240,12 +222,11 @@ async fn find_files_and_folders(
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_window_state::Builder::default().build())
         .on_page_load(|webview, _payload| {
             tokio::spawn(async move {
                 let app_handle = webview.app_handle();
 
-                let mut interval = interval(Duration::from_secs(1));
+                let mut interval = interval(Duration::from_millis(500));
                 let mut volumes = get_volumes();
 
                 loop {
@@ -253,11 +234,8 @@ async fn main() {
 
                     let current_volumes = get_volumes();
 
-                    if only_mountpoints!(volumes).ne(&only_mountpoints!(current_volumes)) {
-                        let difference = volumes
-                            .difference(&current_volumes)
-                            .cloned()
-                            .collect::<HashSet<Volume>>();
+                    if only_mountpoints!(volumes) != only_mountpoints!(current_volumes) {
+                        let difference = volumes.difference(&current_volumes).cloned().collect();
                         volumes = current_volumes;
 
                         let _ = app_handle.emit_all("volumes", vec![&difference, &volumes]);
