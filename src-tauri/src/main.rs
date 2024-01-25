@@ -240,7 +240,7 @@ async fn find_files_and_folders(
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
-        // .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .on_page_load(|webview, _payload| {
             tokio::spawn(async move {
                 let app_handle = webview.app_handle();

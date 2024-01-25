@@ -10,32 +10,24 @@ edition = "2021"
 rust-version = "1.60"
 
 [profile.release]
-opt-level = 3
 lto = true
-panic = "abort"
-codegen-units = 1
-strip = true
+opt-level = 3
 
 [build-dependencies]
-tauri-build = { version = "1.5.1", features = [] }
+tauri-build = { version = "1.5.0", features = [] }
 
 [dependencies]
-serde = { version = "1.0.193", features = ["derive"] }
-tauri = { version = "1.5.4", features = [
-  "shell-open",
-  "window-set-fullscreen",
-  "fs-exists",
-  "path-all",
-] }
-tokio = { version = "1.35.1", features = ["full"] }
-# tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
-regex = "1.10.2"
+serde = { version = "1.0.192", features = ["derive"] }
+tauri = { version = "1.5.2", features = [ "shell-open", "window-set-fullscreen", "fs-exists", "path-all"] }
+tokio = { version = "1.34.0", features = ["full"] }
+tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+regex = "1.9.5"
 walkdir = "2.4.0"
 trash = "3.1.2"
 globmatch = "0.3.0"
-sysinfo = "0.29.11"
+sysinfo = "0.29.10"
 lazy_static = "1.4.0"
-open = "5.0.1"
+open = "5.0.0"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
